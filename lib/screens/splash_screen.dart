@@ -1,7 +1,9 @@
+import 'package:financeapp/controllers/auth_controller.dart';
+import 'package:financeapp/screens/setup_password_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../widgets/main_shell.dart';
+import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,35 +14,31 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _ac;
-  late Animation<double> _fade, _scale;
+  final AuthController authController = Get.find<AuthController>();
 
   @override
   void initState() {
     super.initState();
-    _ac = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _fade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _ac, curve: Curves.easeIn));
-    _scale = Tween<double>(
-      begin: 0.7,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _ac, curve: Curves.elasticOut));
 
-    _ac.forward();
-    Future.delayed(
-      const Duration(milliseconds: 2200),
-      () => Get.off(() => const MainShell(), transition: Transition.fadeIn),
-    );
+    checkAuth();
+
+    // Future.delayed(
+    //   const Duration(milliseconds: 2200),
+    //   () => Get.off(() => const MainShell(), transition: Transition.fadeIn),
+    // );
+  }
+
+  void checkAuth() async {
+    bool hasPassword = await authController.checkUserExists();
+    if (hasPassword) {
+      Get.off(() => LoginScreen(), transition: Transition.fadeIn);
+    } else {
+      Get.off(() => SetPasswordScreen(), transition: Transition.fadeIn);
+    }
   }
 
   @override
   void dispose() {
-    _ac.dispose();
     super.dispose();
   }
 
@@ -56,47 +54,41 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
         child: Center(
-          child: FadeTransition(
-            opacity: _fade,
-            child: ScaleTransition(
-              scale: _scale,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(
-                      // ignore: deprecated_member_use
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        // ignore: deprecated_member_use
-                        color: Colors.white.withOpacity(0.3),
-                        width: 2,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.menu_book_outlined,
-                      color: Colors.white,
-                      size: 44,
-                    ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    // ignore: deprecated_member_use
+                    color: Colors.white.withOpacity(0.3),
+                    width: 2,
                   ),
-                  const SizedBox(height: 22),
-                  const Text(
-                    'Finance Ledger',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const SizedBox(height: 52),
-                ],
+                ),
+                child: const Icon(
+                  Icons.menu_book_outlined,
+                  color: Colors.white,
+                  size: 44,
+                ),
               ),
-            ),
+              const SizedBox(height: 22),
+              const Text(
+                'Finance Ledger',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const SizedBox(height: 52),
+            ],
           ),
         ),
       ),

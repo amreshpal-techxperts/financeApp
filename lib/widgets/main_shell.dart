@@ -1,3 +1,4 @@
+import 'package:financeapp/screens/global_keyword_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../utils/constants.dart';
@@ -26,6 +27,7 @@ class _MainShellState extends State<MainShell> {
       AccountsScreen(),
       VouchersScreen(),
       TagsScreen(),
+      GlobalKeywordsScreen(),
       MasterAccountsScreen(),
       ImportScreen(),
     ];
@@ -80,18 +82,27 @@ class _MainShellState extends State<MainShell> {
                     3,
                     idx,
                   ),
+                    NavItem(
+                    Icons.label_outlined,
+                    Icons.label_rounded,
+                    'Keywords',
+                    4,
+                    idx,
+                  ),
+
+                  
                   NavItem(
                     Icons.account_circle_outlined,
                     Icons.account_circle,
                     'MA',
-                    4,
+                    5,
                     idx,
                   ),
                   NavItem(
                     Icons.upload_file_outlined,
                     Icons.upload_file,
                     'Import',
-                    5,
+                    6,
                     idx,
                   ),
                 ],

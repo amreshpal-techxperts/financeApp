@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'controllers/app_controller.dart';
+import 'controllers/auth_controller.dart';
 import 'controllers/master_account_controller.dart';
 import 'screens/splash_screen.dart';
 import 'utils/constants.dart';
@@ -61,6 +62,7 @@ class FinanceApp extends StatelessWidget {
       initialBinding: BindingsBuilder(() {
         Get.put(AppController(), permanent: true);
         Get.put(MasterAccountController(), permanent: true);
+        Get.put(AuthController(), permanent: true);
       }),
       home: const SplashScreen(),
     );

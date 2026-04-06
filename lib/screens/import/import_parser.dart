@@ -1,71 +1,42 @@
+// ══════════════════════════════════════════════════════════════════════
+// import_parser.dart  — REPLACE existing file with this
+// ══════════════════════════════════════════════════════════════════════
+//
+// DESIGN PHILOSOPHY (new):
+//   • System is PURELY keyword-driven
+//   • Description se account kabhi create/guess nahi hota
+//   • Keyword match → account assign
+//   • No match      → blank (user manually assign karega)
+//   • Global keywords → tag assign (independent)
+// ══════════════════════════════════════════════════════════════════════
+
 import 'package:csv/csv.dart';
 import 'import_models.dart';
-
 import 'dart:convert';
 
-// ── Column Synonyms ────────────────────────────────────
+// ── Column Synonyms ────────────────────────────────────────────────────
 const kDateSynonyms = [
-  'date',
-  'txn date',
-  'transaction date',
-  'value date',
-  'posting date',
-  'tran date',
-  'entry date',
-  'book date',
-  'trade date',
-  'settlement date',
-  'process date',
-  'trans date',
-  'chq date',
+  'date', 'txn date', 'transaction date', 'value date', 'posting date',
+  'tran date', 'entry date', 'book date', 'trade date', 'settlement date',
+  'process date', 'trans date', 'chq date',
 ];
-
 const kCreditSynonyms = [
-  'credit',
-  'deposit',
-  'credit amount',
-  'deposit amount',
-  'received',
-  'credit(cr)',
-  'deposit amt',
-  'credit amt',
-  'cr amount',
-  'inward',
-  'amt in',
-  'amount in',
-  'credit(inr)',
+  'credit', 'deposit', 'credit amount', 'deposit amount', 'received',
+  'credit(cr)', 'deposit amt', 'credit amt', 'cr amount', 'inward',
+  'amt in', 'amount in', 'credit(inr)',
 ];
-
 const kDebitSynonyms = [
-  'debit',
-  'withdrawal',
-  'debit amount',
-  'withdraw',
-  'payment',
-  'debit(dr)',
-  'withdrawal amt',
-  'debit amt',
-  'dr amount',
-  'amt out',
-  'amount out',
-  'debit(inr)',
+  'debit', 'withdrawal', 'debit amount', 'withdraw', 'payment',
+  'debit(dr)', 'withdrawal amt', 'debit amt', 'dr amount', 'amt out',
+  'amount out', 'debit(inr)',
 ];
-
 const kDescSynonyms = [
-  'description',
-  'narration',
-  'particulars',
-  'details',
-  'remarks',
-  'transaction details',
-  'txn description',
-  'transaction narration',
-  'reference',
-  'chq no / ref no',
-  'transaction remark',
+  'description', 'narration', 'particulars', 'details', 'remarks',
+  'transaction details', 'txn description', 'transaction narration',
+  'reference', 'chq no / ref no', 'transaction remark',
 ];
 
-// ── Column Index Finder ────────────────────────────────
+// ── Column Detection ───────────────────────────────────────────────────
 class _ColIdx {
   final int date, desc, debit, credit;
   const _ColIdx({
@@ -78,10 +49,8 @@ class _ColIdx {
 
 _ColIdx? _detectColumns(List<dynamic> header) {
   int? dateIdx, descIdx, debitIdx, creditIdx;
-
   for (int i = 0; i < header.length; i++) {
     final h = header[i].toString().toLowerCase().trim();
-
     if (dateIdx == null && kDateSynonyms.any((s) => h == s || h.contains(s))) {
       dateIdx = i;
       continue;
@@ -90,337 +59,267 @@ _ColIdx? _detectColumns(List<dynamic> header) {
       descIdx = i;
       continue;
     }
-    if (debitIdx == null &&
-        kDebitSynonyms.any((s) => h == s || h.contains(s))) {
+    if (debitIdx == null && kDebitSynonyms.any((s) => h == s || h.contains(s))) {
       debitIdx = i;
       continue;
     }
-    if (creditIdx == null &&
-        kCreditSynonyms.any((s) => h == s || h.contains(s))) {
+    if (creditIdx == null && kCreditSynonyms.any((s) => h == s || h.contains(s))) {
       creditIdx = i;
     }
   }
-
-  if (dateIdx == null ||
-      descIdx == null ||
-      debitIdx == null ||
-      creditIdx == null) {
+  if (dateIdx == null || descIdx == null || debitIdx == null || creditIdx == null) {
     return null;
   }
-
-  return _ColIdx(
-    date: dateIdx,
-    desc: descIdx,
-    debit: debitIdx,
-    credit: creditIdx,
-  );
+  return _ColIdx(date: dateIdx, desc: descIdx, debit: debitIdx, credit: creditIdx);
 }
 
 int? _findHeaderRowIndex(List<List<dynamic>> rows) {
   for (int i = 0; i < rows.length && i < 15; i++) {
-    print('Row $i headers: ${rows[i].map((e) => '"$e"').join(' | ')}');
     if (_detectColumns(rows[i]) != null) return i;
   }
   return null;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// MAIN PARSER
+// ══════════════════════════════════════════════════════════════════════
 ParseResult doParse(ParseParams p) {
+  // ── CSV Parse ────────────────────────────────────────────────────────
   List<List<dynamic>> rows;
   try {
-    final content = p.csvContent
-        .replaceAll('\r\n', '\n')
-        .replaceAll('\r', '\n');
+    final content = p.csvContent.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     rows = const CsvToListConverter().convert(content, eol: '\n');
-
-    print("row = $rows");
   } catch (_) {
     return const ParseResult(
-      rows: [],
-      dupCount: 0,
-      invalidCount: 0,
+      rows: [], dupCount: 0, invalidCount: 0,
       warnings: ['CSV parse failed.'],
     );
   }
-  if (rows.isEmpty) {
-    return const ParseResult(
-      rows: [],
-      dupCount: 0,
-      invalidCount: 0,
-      warnings: ['CSV is empty.'],
-    );
-  }
-  final cleanRows = rows.where((r) {
-    if (r.isEmpty) return false;
-    final joined = r.join('').trim();
-    return joined.isNotEmpty;
-  }).toList();
+
+  final cleanRows = rows
+      .where((r) => r.isNotEmpty && r.join('').trim().isNotEmpty)
+      .toList();
 
   if (cleanRows.isEmpty) {
     return const ParseResult(
-      rows: [],
-      dupCount: 0,
-      invalidCount: 0,
-      warnings: ['CSV is empty.'],
+      rows: [], dupCount: 0, invalidCount: 0, warnings: ['CSV is empty.'],
     );
   }
 
   final headerIdx = _findHeaderRowIndex(cleanRows);
   if (headerIdx == null) {
     return ParseResult(
-      rows: [],
-      dupCount: 0,
-      invalidCount: 0,
-      warnings: [
-        'Could not detect columns.\n'
-            'First row found: "${cleanRows[0].join(' | ')}"',
-      ],
+      rows: [], dupCount: 0, invalidCount: 0,
+      warnings: ['Could not detect columns. First row: "${cleanRows[0].join(' | ')}"'],
     );
   }
 
-  final cols = _detectColumns(cleanRows[headerIdx]);
-  if (cols == null) {
-    return const ParseResult(
-      rows: [],
-      dupCount: 0,
-      invalidCount: 0,
-      warnings: [
-        'Could not detect columns. Expected: Date, Description, Debit, Credit headers.',
-      ],
-    );
+  final cols = _detectColumns(cleanRows[headerIdx])!;
+
+  // ── Pre-build keyword lookup structures ──────────────────────────────
+  //
+  //  accountById   : id → account map
+  //  accountKwMap  : accountId → keywords  (non-person/vendor types)
+  //  partyKwMap    : accountId → keywords  (person/vendor types)
+  //  globalKwMap   : tagId     → keywords  (from global_keywords table)
+  //  tagIdToName   : tagId     → tag name
+  //
+  const partyTypes = {'person', 'vendor'};
+
+  final accountById = <int, Map<String, dynamic>>{
+    for (final a in p.accounts)
+      if (a['id'] != null) a['id'] as int: a,
+  };
+
+  final accountKwMap = <int, List<String>>{};
+  final partyKwMap   = <int, List<String>>{};
+
+  for (final entry in p.keywordsMap.entries) {
+    final acc = accountById[entry.key];
+    if (acc == null) continue;
+    final type = acc['type'] as String? ?? '';
+    if (partyTypes.contains(type)) {
+      partyKwMap[entry.key] = entry.value;
+    } else {
+      accountKwMap[entry.key] = entry.value;
+    }
   }
 
-  final result = <PRowData>[];
-  int dupCount = 0, invalid = 0;
-  final warnings = <String>[];
-  final batchNew = <String, Map<String, String>>{};
+  // ── Process rows ─────────────────────────────────────────────────────
+  final result     = <PRowData>[];
+  int dupCount     = 0;
+  int invalidCount = 0;
+  final warnings   = <String>[];
 
   for (int i = headerIdx + 1; i < cleanRows.length; i++) {
     final row = cleanRows[i];
-
-    if (row.length <= cols.credit) {
-      invalid++;
-      continue;
-    }
+    if (row.length <= cols.credit) { invalidCount++; continue; }
 
     final dateStr = row[cols.date].toString().trim();
-    final desc = row[cols.desc].toString().trim();
-    final debit =
-        double.tryParse(
-          row[cols.debit].toString().replaceAll(RegExp(r'[, ]'), ''),
-        ) ??
-        0;
-    final credit =
-        double.tryParse(
-          row[cols.credit].toString().replaceAll(RegExp(r'[, ]'), ''),
-        ) ??
-        0;
+    final desc    = row[cols.desc].toString().trim();
+    final debit   = double.tryParse(
+      row[cols.debit].toString().replaceAll(RegExp(r'[, ]'), '')) ?? 0;
+    final credit  = double.tryParse(
+      row[cols.credit].toString().replaceAll(RegExp(r'[, ]'), '')) ?? 0;
 
-    if (dateStr.isEmpty) {
-      invalid++;
-      continue;
-    }
-    if (debit == 0 && credit == 0) {
-      invalid++;
-      continue;
-    }
+    if (dateStr.isEmpty)           { invalidCount++; continue; }
+    if (debit == 0 && credit == 0) { invalidCount++; continue; }
 
-    final amount = debit > 0 ? debit : credit;
-    // final normalizedDate = normalizeDate(dateStr);
-    // final amountStr = amount.toStringAsFixed(2); // "500.00" ← consistent
-
-    final txHash = generateTxHash(dateStr, desc, amount);
-    final isDup = p.existingTxKeys.contains(txHash);
+    final amount  = debit > 0 ? debit : credit;
+    final txHash  = generateTxHash(dateStr, desc, amount);
+    final isDup   = p.existingTxKeys.contains(txHash);
     if (isDup) dupCount++;
 
-    final cleaned = cleanName(desc);
-    final normCleaned = norm(cleaned);
-    final descU = desc.toUpperCase();
-    final sugType = guessType(descU, debit > 0);
-    final autoTag = guessTag(descU, p.tags);
-
-    if (cleaned.isEmpty) {
-      result.add(
-        PRowData(
-          date: dateStr,
-          txHash: txHash,
-          description: desc,
-          cleanedName: '',
-          debit: debit,
-          credit: credit,
-          accountType: sugType,
-          tag: autoTag,
-          isDuplicate: isDup,
-          skip: isDup,
-        ),
-      );
-      continue;
-    }
-
-    int? matchId;
-    String? matchName, matchType;
-
-    for (final e in p.vendorMap.entries) {
-      if (descU.contains(e.key)) {
-        final acc = exactFind(e.value, p.accounts);
-        if (acc != null) {
-          matchId = acc['id'] as int?;
-          matchName = acc['name'] as String;
-          matchType = acc['type'] as String;
-        }
-        break;
-      }
-    }
-    if (matchId == null) {
-      for (final e in p.tagMap.entries) {
-        if (descU.contains(e.key)) {
-          final acc = containsFind(e.value, p.accounts);
-          if (acc != null) {
-            matchId = acc['id'] as int?;
-            matchName = acc['name'] as String;
-            matchType = acc['type'] as String;
-          }
-          break;
-        }
-      }
-    }
-
-    bool isNew = false;
-    if (matchId == null) {
-      final existingAcc = fuzzyFind(cleaned, p.accounts);
-      if (existingAcc != null) {
-        matchId = existingAcc['id'] as int?;
-        matchName = existingAcc['name'] as String;
-        matchType = existingAcc['type'] as String;
-        isNew = false;
-      } else if (batchNew.containsKey(normCleaned)) {
-        matchName = batchNew[normCleaned]!['name']!;
-        matchType = batchNew[normCleaned]!['type']!;
-        isNew = true;
-      } else {
-        matchName = cleaned;
-        matchType = sugType;
-        batchNew[normCleaned] = {'name': cleaned, 'type': sugType};
-        isNew = true;
-      }
-    }
-
-    result.add(
-      PRowData(
-        date: dateStr,
-        txHash: txHash,
-        description: desc,
-        cleanedName: cleaned,
-        debit: debit,
-        credit: credit,
-        accountId: matchId,
-        accountName: matchName,
-        accountType: matchType ?? sugType,
-        tag: autoTag,
-        isNewAccount: isNew,
-        isDuplicate: isDup,
-        skip: isDup,
-      ),
+    // ── KEYWORD MATCHING ───────────────────────────────────────────────
+    final result3 = _matchKeywords(
+      description   : desc,
+      accountKwMap  : accountKwMap,
+      partyKwMap    : partyKwMap,
+      globalKwMap   : p.globalKeywordsMap,
+      tagIdToName   : p.tagIdToName,
+      accountById   : accountById,
+      fallbackTags  : p.tags,
     );
+
+    result.add(PRowData(
+      date        : dateStr,
+      txHash      : txHash,
+      description : desc,
+      cleanedName : result3.matchedName ?? '',   // only if keyword matched
+      debit       : debit,
+      credit      : credit,
+      accountId   : result3.accountId,
+      accountName : result3.matchedName,          // null = unassigned
+      accountType : result3.accountType ?? 'expense',
+      tag         : result3.tagName,
+      isNewAccount: false,                        // NEVER auto-create
+      isDuplicate : isDup,
+      skip        : isDup,
+    ));
   }
 
-  if (batchNew.length > 20) {
-    warnings.add(
-      '${batchNew.length} new accounts will be created. Tap "Review" to check types.',
-    );
-  }
   return ParseResult(
-    rows: result,
-    dupCount: dupCount,
-    invalidCount: invalid,
-    warnings: warnings,
+    rows         : result,
+    dupCount     : dupCount,
+    invalidCount : invalidCount,
+    warnings     : warnings,
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// KEYWORD MATCH ENGINE
+// ══════════════════════════════════════════════════════════════════════
+
+class _MatchResult {
+  final int?    accountId;
+  final String? matchedName;
+  final String? accountType;
+  final String? tagName;
+
+  const _MatchResult({
+    this.accountId,
+    this.matchedName,
+    this.accountType,
+    this.tagName,
+  });
+}
+
+_MatchResult _matchKeywords({
+  required String description,
+  required Map<int, List<String>> accountKwMap,
+  required Map<int, List<String>> partyKwMap,
+  required Map<int, List<String>> globalKwMap,
+  required Map<int, String>       tagIdToName,
+  required Map<int, Map<String, dynamic>> accountById,
+  required List<String>           fallbackTags,
+}) {
+  final desc = _normalize(description);
+
+  int?    accountId;
+  String? matchedName;
+  String? accountType;
+  String? tagName;
+  int     longestAccountKw = 0;
+  int     longestPartyKw   = 0;
+  int     longestGlobalKw  = 0;
+
+  // ── P1: Account Keywords (expense / income / bank / cash / wallet) ──
+  for (final entry in accountKwMap.entries) {
+    for (final kw in entry.value) {
+      final kwL = kw.toLowerCase().trim();
+      if (kwL.length < 2)            continue;
+      if (!desc.contains(kwL))       continue;
+      if (kwL.length <= longestAccountKw) continue;
+
+      longestAccountKw = kwL.length;
+      final acc = accountById[entry.key]!;
+      accountId   = entry.key;
+      matchedName = acc['name'] as String;
+      accountType = acc['type'] as String;
+    }
+  }
+
+  // ── P2: Party Keywords (person / vendor) ────────────────────────────
+  //    Only if P1 had no match
+  if (accountId == null) {
+    for (final entry in partyKwMap.entries) {
+      for (final kw in entry.value) {
+        final kwL = kw.toLowerCase().trim();
+        if (kwL.length < 2)           continue;
+        if (!desc.contains(kwL))      continue;
+        if (kwL.length <= longestPartyKw) continue;
+
+        longestPartyKw = kwL.length;
+        final acc = accountById[entry.key]!;
+        accountId   = entry.key;
+        matchedName = acc['name'] as String;
+        accountType = acc['type'] as String;
+      }
+    }
+  }
+
+  // ── P3: Global Keywords → Tag (works independently) ─────────────────
+  for (final entry in globalKwMap.entries) {
+    for (final kw in entry.value) {
+      final kwL = kw.toLowerCase().trim();
+      if (kwL.length < 2)           continue;
+      if (!desc.contains(kwL))      continue;
+      if (kwL.length <= longestGlobalKw) continue;
+
+      longestGlobalKw = kwL.length;
+      tagName = tagIdToName[entry.key];
+    }
+  }
+
+  // If no global match, try guessTag as fallback (optional)
+  tagName ??= guessTag(description.toUpperCase(), fallbackTags);
+
+  return _MatchResult(
+    accountId   : accountId,
+    matchedName : matchedName,
+    accountType : accountType,
+    tagName     : tagName,
+  );
+}
+
+String _normalize(String s) => s
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^\w\s]'), ' ')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();
+
+// ── Tag Guesser (fallback only) ────────────────────────────────────────
 String? guessTag(String d, List<String> tags) {
   const keywordToTag = {
-    'ZOMATO': 'Food',
-    'SWIGGY': 'Food',
-    'RESTAURANT': 'Food',
-    'HOTEL': 'Food',
-    'CAFE': 'Food',
-    'DOMINOS': 'Food',
-    'PIZZA': 'Food',
-    'BURGER': 'Food',
-    'DUNZO': 'Food',
-    'BLINKIT': 'Food',
-    'ZEPTO': 'Food',
-    'BIGBASKET': 'Food',
-    'IRCTC': 'Travel',
-    'MAKEMYTRIP': 'Travel',
-    'GOIBIBO': 'Travel',
-    'REDBUS': 'Travel',
-    'AIRLINE': 'Travel',
-    'FLIGHT': 'Travel',
-    'INDIGO': 'Travel',
-    'AIRINDIA': 'Travel',
-    'SPICEJET': 'Travel',
-    'UBER': 'Travel',
-    'OLA': 'Travel',
-    'RAPIDO': 'Travel',
-    'AMAZON': 'Shopping',
-    'FLIPKART': 'Shopping',
-    'MYNTRA': 'Shopping',
-    'MEESHO': 'Shopping',
-    'NYKAA': 'Shopping',
-    'AJIO': 'Shopping',
-    'SNAPDEAL': 'Shopping',
-    'ELECTRICITY': 'Bills',
-    'BESCOM': 'Bills',
-    'MSEB': 'Bills',
-    'TATAPOWER': 'Bills',
-    'RECHARGE': 'Bills',
-    'AIRTEL': 'Bills',
-    'VODAFONE': 'Bills',
-    'JIO': 'Bills',
-    'BSNL': 'Bills',
-    'GAS': 'Bills',
-    'PIPED': 'Bills',
-    'WATER': 'Bills',
-    'SALARY': 'Salary',
-    'PAYROLL': 'Salary',
-    'STIPEND': 'Salary',
-    'RENT': 'Rent',
-    'RENTAL': 'Rent',
-    'MEDICAL': 'Medical',
-    'HOSPITAL': 'Medical',
-    'PHARMACY': 'Medical',
-    'APOLLO': 'Medical',
-    'MEDPLUS': 'Medical',
-    'NETMEDS': 'Medical',
-    '1MG': 'Medical',
-    'PRACTO': 'Medical',
-    'CLINIC': 'Medical',
-    'PETROL': 'Fuel',
-    'DIESEL': 'Fuel',
-    'FUEL': 'Fuel',
-    'HPCL': 'Fuel',
-    'BPCL': 'Fuel',
-    'IOCL': 'Fuel',
-    'INDIANOIL': 'Fuel',
-    'RELIANCE PETRO': 'Fuel',
-    'EMI': 'EMI',
-    'LOAN': 'EMI',
-    'BAJAJ': 'EMI',
-    'MUTUAL': 'Investment',
-    'SIP': 'Investment',
-    'GROWW': 'Investment',
-    'ZERODHA': 'Investment',
-    'UPSTOX': 'Investment',
-    'INVEST': 'Investment',
-    'DIVIDEND': 'Investment',
-    'REFUND': 'Refund',
-    'CASHBACK': 'Refund',
-    'REVERSAL': 'Refund',
-    'NEFT': 'Transfer',
-    'IMPS': 'Transfer',
-    'RTGS': 'Transfer',
-    'P2P': 'Transfer',
-    'TRANSFER': 'Transfer',
+    'ZOMATO': 'Food', 'SWIGGY': 'Food', 'RESTAURANT': 'Food',
+    'IRCTC': 'Travel', 'MAKEMYTRIP': 'Travel', 'UBER': 'Travel', 'OLA': 'Travel',
+    'AMAZON': 'Shopping', 'FLIPKART': 'Shopping', 'MYNTRA': 'Shopping',
+    'ELECTRICITY': 'Bills & Utilities', 'AIRTEL': 'Bills & Utilities',
+    'JIO': 'Bills & Utilities', 'VODAFONE': 'Bills & Utilities',
+    'HOSPITAL': 'Medical', 'PHARMACY': 'Medical', 'APOLLO': 'Medical',
+    'NEFT': 'Transfer', 'IMPS': 'Transfer', 'RTGS': 'Transfer',
+    'TRANSFER': 'Transfer', 'UPI': 'Transfer',
+    'ATM': 'Others', 'CASH': 'Others',
   };
 
   for (final entry in keywordToTag.entries) {
@@ -432,216 +331,19 @@ String? guessTag(String d, List<String> tags) {
       if (dbTag.isNotEmpty) return dbTag;
     }
   }
-  // 👇 fallback
-  final others = tags.firstWhere(
+  return tags.firstWhere(
     (t) => t.toLowerCase() == 'others',
-    orElse: () => 'Others',
+    orElse: () => tags.isNotEmpty ? tags.first : null ?? '',
   );
-  return others;
 }
 
-String cleanName(String raw) {
-  var s = raw.toUpperCase();
-
-  // 1. Remove transaction prefixes
-  s = s.replaceAll(
-    RegExp(
-      r'^(UPI[-/]|NEFT[-/]?|IMPS[-/]?|RTGS[-/]?|ACH[-/]?|ECS[-/]?|MMT/|P2M/|P2P/|CMS/)',
-      caseSensitive: false,
-    ),
-    '',
-  );
-
-  // 2. Handle UPI (smart)
-  if (s.contains('@')) {
-    final beforeAt = s.split('@').first;
-    if (!isKnownBrand(beforeAt)) {
-      s = beforeAt;
-    }
-  }
-
-  // 3. Remove long numbers (txn ids etc)
-  s = s.replaceAll(RegExp(r'\b\d{6,}\b'), '');
-
-  // 4. Remove common banking words
-  s = s.replaceAll(
-    RegExp(
-      r'\b(PAYMENT|TRANSFER|TRF|FROM|TO|BY|VIA|REF|BANK|LIMITED|LTD|PVT|PRIVATE|CORP|CO|PURCHASE|ORDER|BOOKING|DEBIT|CREDIT)\b',
-      caseSensitive: false,
-    ),
-    '',
-  );
-
-  // 5. Replace separators with space
-  s = s.replaceAll(RegExp(r'[_\-/|\\]+'), ' ');
-
-  // 6. Clean multiple spaces
-  s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-  // 7. Smart word selection
-  final words = s
-      .split(' ')
-      .where((w) => w.length > 1 && !RegExp(r'^\d+$').hasMatch(w))
-      .take(4)
-      .toList();
-
-  s = words.join(' ').trim();
-
-  // 8. Capitalize properly
-  return s
-      .split(' ')
-      .map(
-        (w) => w.isEmpty
-            ? ''
-            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}',
-      )
-      .join(' ');
-}
-
-String norm(String s) => s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
-
-Map<String, dynamic>? exactFind(String name, List<Map<String, dynamic>> accs) {
-  final n = norm(name);
-  for (final a in accs) {
-    if (norm(a['name'] as String) == n) return a;
-  }
-  return null;
-}
-
-Map<String, dynamic>? containsFind(
-  String name,
-  List<Map<String, dynamic>> accs,
-) {
-  final n = norm(name);
-  for (final a in accs) {
-    final an = norm(a['name'] as String);
-    if (an.contains(n) || n.contains(an)) return a;
-  }
-  return null;
-}
-
-Map<String, dynamic>? fuzzyFind(String name, List<Map<String, dynamic>> accs) {
-  if (name.length < 3) return null;
-  final exact = exactFind(name, accs);
-  if (exact != null) return exact;
-  final contains = containsFind(name, accs);
-  if (contains != null) return contains;
-  final nWords = name.split(' ').where((w) => w.length > 2).toSet();
-  if (nWords.length >= 2) {
-    for (final a in accs) {
-      final aWords = norm(
-        a['name'] as String,
-      ).split(' ').where((w) => w.length > 2).toSet();
-      if (nWords.intersection(aWords).length >= 2) return a;
-    }
-  }
-  return null;
-}
-
-String guessType(String d, bool isDebit) {
-  if (d.contains('SALARY') ||
-      d.contains('PAYROLL') ||
-      d.contains('DIVIDEND') ||
-      d.contains('INTEREST CREDIT') ||
-      d.contains('CASHBACK')) {
-    return 'income';
-  }
-
-  if (d.contains('REFUND')) return isDebit ? 'expense' : 'income';
-
-  if (isKnownBrand(d)) return 'vendor';
-
-  if (d.contains('P2P')) return 'person';
-  final upiPersonal = RegExp(
-    r'@(OKICICI|OKHDFCBANK|OKSBI|OKAXIS|YBL|IBL|AXISB|UCOBANK|BARODAMPAY|KOTAK|PTYES|PAYTM|WAICICI|WAHDFCBANK)',
-    caseSensitive: false,
-  );
-  if (upiPersonal.hasMatch(d)) return 'person';
-
-  if (RegExp(r'\b[6-9]\d{9}\b').hasMatch(d)) return 'person';
-
-  if (d.contains('IMPS') || d.contains('NEFT') || d.contains('RTGS')) {
-    return 'person';
-  }
-  if (d.contains('MMT/')) return 'person';
-  final words = d
-      .replaceAll(RegExp(r'[^A-Z\s]'), ' ')
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((w) => w.length > 2)
-      .toList();
-  if (words.length >= 2 &&
-      words.length <= 4 &&
-      words.every((w) => RegExp(r'^[A-Z]+$').hasMatch(w)) &&
-      !isKnownBrand(d)) {
-    return 'person';
-  }
-
-  if (d.contains('RENT') && !isDebit) return 'income';
-
-  return isDebit ? 'expense' : 'income';
-}
-
-bool isKnownBrand(String d) {
-  const brands = [
-    'ZOMATO',
-    'SWIGGY',
-    'AMAZON',
-    'FLIPKART',
-    'MYNTRA',
-    'MEESHO',
-    'BIGBASKET',
-    'BLINKIT',
-    'DUNZO',
-    'ZEPTO',
-    'IRCTC',
-    'MAKEMYTRIP',
-    'GOIBIBO',
-    'REDBUS',
-    'NETFLIX',
-    'HOTSTAR',
-    'SPOTIFY',
-    'YOUTUBE',
-    'AIRTEL',
-    'VODAFONE',
-    'JIOMART',
-    'JIO',
-    'BSNL',
-    'APOLLO',
-    'MEDPLUS',
-    'NETMEDS',
-    '1MG',
-    'UBER',
-    'OLA',
-    'RAPIDO',
-    'ELECTRICITY',
-    'BESCOM',
-    'MSEB',
-    'TATA POWER',
-    'LIC',
-    'HDFC LIFE',
-    'SBI LIFE',
-    'ICICI PRU',
-    'BAJAJ',
-    'GROWW',
-    'ZERODHA',
-    'UPSTOX',
-  ];
-  return brands.any((b) => d.contains(b));
-}
-
-//  Yeh helper add karo file ke bottom mein
+// ── Date & Hash Helpers ────────────────────────────────────────────────
 String normalizeDate(String s) {
   s = s.trim();
-  // Already yyyy-MM-dd format
   if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(s)) return s.substring(0, 10);
-  // dd/MM/yyyy or dd-MM-yyyy
   final m = RegExp(r'^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})').firstMatch(s);
   if (m != null) {
-    final d = m.group(1)!.padLeft(2, '0');
-    final mo = m.group(2)!.padLeft(2, '0');
-    final y = m.group(3)!;
-    return '$y-$mo-$d';
+    return '${m.group(3)}-${m.group(2)!.padLeft(2, '0')}-${m.group(1)!.padLeft(2, '0')}';
   }
   return s.toLowerCase();
 }
@@ -649,7 +351,6 @@ String normalizeDate(String s) {
 String generateTxHash(String date, String desc, double amount) {
   final normalized =
       '${normalizeDate(date)}|${desc.toLowerCase().trim()}|${amount.toStringAsFixed(2)}';
-  // Simple hash — no external package needed
   final bytes = utf8.encode(normalized);
   int hash = 0;
   for (final b in bytes) {

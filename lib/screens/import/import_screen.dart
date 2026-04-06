@@ -1,7 +1,5 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
-import 'dart:developer';
-
 import 'package:financeapp/controllers/app_controller.dart';
 import 'package:financeapp/database/db_helper.dart';
 import 'package:financeapp/models/account.dart';
@@ -35,34 +33,12 @@ class _ImportScreenState extends State<ImportScreen>
   String _loadingMsg = 'Parsing CSV...';
   int? _selectedBankAccountId;
 
-  late AnimationController _fadeCtrl;
-  late Animation<double> _fadeAnim;
-
   int get _activeRows => _rows.where((r) => !r.skip).length;
   int get _dupRows => _rows.where((r) => r.isDuplicate).length;
-  int get _newAccRows => _rows
-      .where((r) => !r.skip && r.isNewAccount)
-      .map((r) => r.accountName)
-      .toSet()
-      .length;
+
+  // Unassigned = keyword match nahi hua, user manually select karega
   int get _unsetRows =>
       _rows.where((r) => !r.skip && r.accountName == null).length;
-
-  @override
-  void initState() {
-    super.initState();
-    _fadeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
-  }
-
-  @override
-  void dispose() {
-    _fadeCtrl.dispose();
-    super.dispose();
-  }
 
   // ── Build ──────────────────────────────────────────────
   @override
@@ -77,13 +53,10 @@ class _ImportScreenState extends State<ImportScreen>
           if (!_loading && _rows.isNotEmpty) ...[
             _buildStatsBar(),
             Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnim,
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-                  itemCount: _rows.length,
-                  itemBuilder: (_, i) => _buildRowCard(i),
-                ),
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                itemCount: _rows.length,
+                itemBuilder: (_, i) => _buildRowCard(i),
               ),
             ),
           ],
@@ -114,12 +87,7 @@ class _ImportScreenState extends State<ImportScreen>
       ],
     ),
     actions: [
-      if (_rows.isNotEmpty && _newAccRows > 0)
-        AppBarBtn(
-          icon: Icons.auto_fix_high_outlined,
-          label: 'Review ($_newAccRows)',
-          onTap: _reviewNewAccounts,
-        ),
+      // "Review New Accounts" button removed — no auto-creation in new system
       if (_rows.isNotEmpty)
         IconButton(
           icon: const Icon(Icons.delete_sweep_outlined),
@@ -145,7 +113,6 @@ class _ImportScreenState extends State<ImportScreen>
     ),
     child: Column(
       children: [
-        // Top gradient banner
         Container(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
           decoration: BoxDecoration(
@@ -194,8 +161,6 @@ class _ImportScreenState extends State<ImportScreen>
             ],
           ),
         ),
-
-        // Dropdown + button
         Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -291,12 +256,9 @@ class _ImportScreenState extends State<ImportScreen>
                   );
                 },
               ),
-
               const SizedBox(height: 20),
-
               StepLabel(step: '2', label: 'Upload CSV File'),
               const SizedBox(height: 10),
-
               GestureDetector(
                 onTap: _selectedBankAccountId == null ? null : _pickFile,
                 child: AnimatedContainer(
@@ -391,15 +353,7 @@ class _ImportScreenState extends State<ImportScreen>
                           onTap: _toggleAllDuplicates,
                         ),
                       ],
-                      if (_newAccRows > 0) ...[
-                        const SizedBox(width: 8),
-                        StatPill(
-                          value: '$_newAccRows',
-                          label: 'New Acc',
-                          color: AppColors.primary,
-                          icon: Icons.add_circle_outline,
-                        ),
-                      ],
+                      // "New Acc" pill removed — no auto-creation
                       if (_unsetRows > 0) ...[
                         const SizedBox(width: 8),
                         StatPill(
@@ -470,10 +424,10 @@ class _ImportScreenState extends State<ImportScreen>
         : row.isDuplicate
         ? Colors.orange.shade50
         : Colors.white;
+
+    // accColor: red = unset, primary = assigned
     final Color accColor = row.accountName == null
         ? Colors.red
-        : row.isNewAccount
-        ? Colors.deepOrange
         : AppColors.primary;
     final tc = tagColor(row.tag);
 
@@ -507,7 +461,7 @@ class _ImportScreenState extends State<ImportScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Checkbox
+                // Skip toggle checkbox
                 GestureDetector(
                   onTap: () => setState(() => row.skip = !row.skip),
                   child: Container(
@@ -535,7 +489,6 @@ class _ImportScreenState extends State<ImportScreen>
                   ),
                 ),
                 const SizedBox(width: 12),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,10 +531,9 @@ class _ImportScreenState extends State<ImportScreen>
                                       ],
                                     ),
                                   ),
+                                // Title: matched account name OR raw description
                                 Text(
-                                  row.cleanedName.isNotEmpty
-                                      ? row.cleanedName
-                                      : row.description,
+                                  row.accountName ?? row.description,
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
@@ -593,6 +545,17 @@ class _ImportScreenState extends State<ImportScreen>
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),
+                                // Show raw description as subtitle when account matched
+                                if (row.accountName != null)
+                                  Text(
+                                    row.description,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 Text(
                                   row.date,
                                   style: TextStyle(
@@ -615,12 +578,10 @@ class _ImportScreenState extends State<ImportScreen>
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 10),
-
                       Row(
                         children: [
-                          // Account chip
+                          // Account selector
                           Expanded(
                             child: GestureDetector(
                               onTap: () => _editRowAcc(i),
@@ -639,9 +600,7 @@ class _ImportScreenState extends State<ImportScreen>
                                 child: Row(
                                   children: [
                                     Icon(
-                                      row.isNewAccount
-                                          ? Icons.add_circle_outline
-                                          : row.accountName == null
+                                      row.accountName == null
                                           ? Icons.warning_amber_outlined
                                           : Icons.account_circle_outlined,
                                       size: 13,
@@ -660,30 +619,6 @@ class _ImportScreenState extends State<ImportScreen>
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    if (row.isNewAccount)
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 4),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 5,
-                                          vertical: 1,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.deepOrange.withOpacity(
-                                            0.15,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'NEW',
-                                          style: TextStyle(
-                                            fontSize: 8,
-                                            color: Colors.deepOrange,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ),
                                     Icon(
                                       Icons.chevron_right,
                                       size: 14,
@@ -694,10 +629,8 @@ class _ImportScreenState extends State<ImportScreen>
                               ),
                             ),
                           ),
-
                           const SizedBox(width: 8),
-
-                          // Tag chip
+                          // Tag selector
                           GestureDetector(
                             onTap: () => _pickTag(i),
                             child: Container(
@@ -781,7 +714,7 @@ class _ImportScreenState extends State<ImportScreen>
           ),
           const SizedBox(height: 6),
           const Text(
-            'Please wait, we are importing your data...',
+            'Please wait...',
             style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
@@ -1036,10 +969,29 @@ class _ImportScreenState extends State<ImportScreen>
 
     try {
       final content = await File(result.files.first.path!).readAsString();
-      log(content);
-      setState(() => _loadingMsg = 'Checking duplicates...');
 
+      setState(() => _loadingMsg = 'Checking duplicates...');
       final existingKeys = await _buildExistingTxKeys();
+
+      setState(() => _loadingMsg = 'Loading keywords...');
+
+      // accountId → keywords (from accounts.keywords column)
+      final keywordsMap = <int, List<String>>{};
+      for (final acc in ctrl.accounts) {
+        if (acc.id != null && acc.keywords.isNotEmpty) {
+          keywordsMap[acc.id!] = List<String>.from(acc.keywords);
+        }
+      }
+
+      // global_keywords table se: tagId → keywords
+      final globalKwMap = await DBHelper.instance.getGlobalKeywordsMap();
+
+      // tagId → tagName
+      final tagIdToName = <int, String>{
+        for (final t in ctrl.tags)
+          if (t.id != null) t.id!: t.name,
+      };
+
       setState(() => _loadingMsg = 'Matching accounts...');
 
       final accMaps = ctrl.accounts
@@ -1055,6 +1007,9 @@ class _ImportScreenState extends State<ImportScreen>
           vendorMap: kAutoVendorMap,
           tagMap: kAutoTagMap,
           tags: ctrl.tags.map((t) => t.name).toList(),
+          keywordsMap: keywordsMap,
+          globalKeywordsMap: globalKwMap,
+          tagIdToName: tagIdToName,
         ),
       );
 
@@ -1065,7 +1020,6 @@ class _ImportScreenState extends State<ImportScreen>
         }
         _imported = false;
       });
-      _fadeCtrl.forward(from: 0);
 
       for (final w in parsed.warnings) {
         Get.snackbar(
@@ -1091,15 +1045,11 @@ class _ImportScreenState extends State<ImportScreen>
   }
 
   void _showParseSummary(ParseResult r) {
-    final newCount = r.rows
-        .where((row) => row.isNewAccount)
-        .map((row) => row.accountName)
-        .toSet()
-        .length;
     final parts = ['${r.rows.length} rows'];
     if (r.dupCount > 0) parts.add('${r.dupCount} dup');
     if (r.invalidCount > 0) parts.add('${r.invalidCount} invalid');
-    if (newCount > 0) parts.add('$newCount new acc');
+    final unset = r.rows.where((row) => row.accountName == null).length;
+    if (unset > 0) parts.add('$unset unset');
     Get.snackbar(
       'CSV Loaded ✓',
       parts.join('  •  '),
@@ -1122,187 +1072,15 @@ class _ImportScreenState extends State<ImportScreen>
     }
   }
 
-  // ── Review New Accounts ────────────────────────────────
-  void _reviewNewAccounts() {
-    final seen = <String>{};
-    final newList = _rows.where((r) {
-      if (!r.isNewAccount || r.accountName == null) return false;
-      return seen.add(norm(r.accountName!));
-    }).toList();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, ss) => Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.auto_fix_high_outlined,
-                        color: AppColors.primary,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${newList.length} New Accounts',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const Text(
-                            'Change type before importing',
-                            style: TextStyle(color: Colors.grey, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Done'),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: Colors.grey.shade100),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: newList.length,
-                  itemBuilder: (_, i) {
-                    final row = newList[i];
-                    final color = AppIcons.colorFor(row.accountType);
-
-                    // Safety: validate value exists in items
-                    final safeValue =
-                        AppLabels.accountType.containsKey(row.accountType)
-                        ? row.accountType
-                        : AppLabels.accountType.keys.first;
-
-                    return Container(
-                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade100),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        leading: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: color.withOpacity(0.12),
-                          child: Icon(
-                            AppIcons.forAccount(row.accountType),
-                            size: 16,
-                            color: color,
-                          ),
-                        ),
-                        title: Text(
-                          row.accountName ?? '—',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          AppLabels.accountType[row.accountType] ??
-                              row.accountType,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                        trailing: SizedBox(
-                          width: 120,
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: safeValue,
-                              isDense: true,
-                              isExpanded: true,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppIcons.colorFor(row.accountType),
-                                fontWeight: FontWeight.w600,
-                              ),
-                              items: AppLabels.accountType.entries
-                                  .map(
-                                    (e) => DropdownMenuItem(
-                                      value: e.key,
-                                      child: Text(
-                                        e.value,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) {
-                                if (v == null) return;
-                                final key = norm(row.accountName!);
-                                ss(
-                                  () => setState(() {
-                                    for (final r in _rows) {
-                                      if (r.isNewAccount &&
-                                          norm(r.accountName ?? '') == key) {
-                                        r.accountType = v;
-                                      }
-                                    }
-                                  }),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   // ── Edit Row Account ───────────────────────────────────
+  // User manually select karta hai — keyword bhi save hoga
   void _editRowAcc(int rowIdx) {
     final row = _rows[rowIdx];
-    final sugName = row.cleanedName.isNotEmpty
-        ? row.cleanedName
-        : cleanName(row.description);
+
+    // Suggested name: matched account ya raw description se pehle 3 words
+    final sugName =
+        row.accountName ??
+        row.description.split(RegExp(r'\s+')).take(3).join(' ').trim();
     final sugType = row.accountType;
 
     showModalBottomSheet(
@@ -1352,6 +1130,7 @@ class _ImportScreenState extends State<ImportScreen>
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
+                    // Header
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                       child: Row(
@@ -1397,6 +1176,7 @@ class _ImportScreenState extends State<ImportScreen>
                       ),
                     ),
 
+                    // Search bar (when not creating)
                     if (!showCreate)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1429,6 +1209,7 @@ class _ImportScreenState extends State<ImportScreen>
                         ),
                       ),
 
+                    // Create new account panel
                     if (showCreate) ...[
                       Container(
                         margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1536,6 +1317,19 @@ class _ImportScreenState extends State<ImportScreen>
                                           openingBalance: 0,
                                         );
                                         await ctrl.addAccount(newAcc);
+
+                                        // Description se keywords save karo
+                                        if (newAcc.id != null) {
+                                          final kw = _keywordsFromRow(row);
+                                          if (kw.isNotEmpty) {
+                                            await DBHelper.instance
+                                                .updateAccountKeywords(
+                                                  newAcc.id!,
+                                                  kw,
+                                                );
+                                          }
+                                        }
+
                                         setState(() {
                                           _rows[rowIdx]
                                             ..accountId = newAcc.id
@@ -1590,6 +1384,7 @@ class _ImportScreenState extends State<ImportScreen>
 
                     Divider(height: 1, color: Colors.grey.shade100),
 
+                    // Accounts list
                     Expanded(
                       child: filtered.isEmpty
                           ? Center(
@@ -1716,7 +1511,7 @@ class _ImportScreenState extends State<ImportScreen>
                                                   size: 20,
                                                 )
                                               : null,
-                                          onTap: () {
+                                          onTap: () async {
                                             setState(() {
                                               _rows[rowIdx]
                                                 ..accountId = a.id
@@ -1725,6 +1520,19 @@ class _ImportScreenState extends State<ImportScreen>
                                                 ..isNewAccount = false;
                                             });
                                             Navigator.pop(context);
+
+                                            // Manual assign → keywords save karo
+                                            if (a.id != null) {
+                                              final kw = _keywordsFromRow(row);
+                                              if (kw.isNotEmpty) {
+                                                await DBHelper.instance
+                                                    .updateAccountKeywords(
+                                                      a.id!,
+                                                      kw,
+                                                    );
+                                                await ctrl.loadAll();
+                                              }
+                                            }
                                           },
                                         ),
                                       );
@@ -1746,6 +1554,7 @@ class _ImportScreenState extends State<ImportScreen>
 
   // ── Do Import ──────────────────────────────────────────
   Future<void> _doImport() async {
+    // Unset rows hain toh confirm karo
     if (_unsetRows > 0) {
       final ok = await showDialog<bool>(
         context: context,
@@ -1758,7 +1567,7 @@ class _ImportScreenState extends State<ImportScreen>
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           content: Text(
-            "$_unsetRows rows have no account assigned. Skip them?",
+            '$_unsetRows rows ka account assign nahi hai. Skip karein?',
           ),
           actions: [
             TextButton(
@@ -1784,30 +1593,13 @@ class _ImportScreenState extends State<ImportScreen>
 
     setState(() {
       _loading = true;
-      _loadingMsg = 'Creating accounts...';
+      _loadingMsg = 'Saving transactions...';
     });
 
     try {
-      final createdMap = <String, Account>{};
-      for (final row in _rows) {
-        if (row.skip || !row.isNewAccount || row.accountName == null) continue;
-        final key = norm(row.accountName!);
-        if (!createdMap.containsKey(key)) {
-          final acc = Account(
-            name: row.accountName!,
-            type: row.accountType,
-            openingBalance: 0,
-          );
-          await ctrl.addAccount(acc);
-          createdMap[key] = acc;
-        }
-        row.accountId = createdMap[key]!.id;
-        row.isNewAccount = false;
-      }
-
-      setState(() => _loadingMsg = 'Saving transactions...');
-
+      // Sirf assigned + not skipped rows import honge
       final valid = _rows.where((r) => !r.skip && r.accountId != null).toList();
+
       final vList = <TxVoucher>[];
       final eList = <List<Entry>>[];
       final bankId = _selectedBankAccountId!;
@@ -1872,6 +1664,18 @@ class _ImportScreenState extends State<ImportScreen>
         eList,
       );
 
+      // Keywords save karo (manual assign ke liye bhi)
+      setState(() => _loadingMsg = 'Saving keywords...');
+      final kwMap = <int, List<String>>{};
+      for (final row in valid) {
+        if (row.accountId == null) continue;
+        final kw = _keywordsFromRow(row);
+        if (kw.isNotEmpty) {
+          kwMap.putIfAbsent(row.accountId!, () => []).addAll(kw);
+        }
+      }
+      await DBHelper.instance.bulkUpdateKeywords(kwMap);
+
       await ctrl.loadAll();
 
       setState(() {
@@ -1879,19 +1683,15 @@ class _ImportScreenState extends State<ImportScreen>
         _rows = [];
       });
 
-      final accNote = createdMap.isNotEmpty
-          ? ', ${createdMap.length} accounts created'
-          : '';
       Get.snackbar(
         'Done! ✓',
-        '$insertedCount vouchers imported $accNote.'
+        '$insertedCount vouchers imported.'
             '${valid.length - insertedCount > 0 ? " (${valid.length - insertedCount} already existed)" : ""}',
         backgroundColor: AppColors.credit,
         colorText: Colors.white,
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
-      print(e);
       Get.snackbar(
         'Error',
         'Import failed: $e',
@@ -1902,4 +1702,74 @@ class _ImportScreenState extends State<ImportScreen>
       setState(() => _loading = false);
     }
   }
+
+  // ── Keyword Helpers ────────────────────────────────────
+  // Description se keywords extract karo — next import mein auto-match ke liye
+  List<String> _keywordsFromRow(PRowData row) {
+    final keywords = <String>{};
+
+    // 1. Matched account name ke words (agar keyword se match hua tha)
+    if (row.cleanedName.isNotEmpty) {
+      final words = row.cleanedName
+          .toLowerCase()
+          .split(RegExp(r'\s+'))
+          .where((w) => w.length >= 3 && !_isStopWord(w));
+      keywords.addAll(words);
+    }
+
+    // 2. UPI handle (@se pehle wala part)
+    final upiMatch = RegExp(
+      r'([a-zA-Z0-9]{3,})@',
+    ).firstMatch(row.description.toLowerCase());
+    if (upiMatch != null) {
+      final handle = upiMatch.group(1)!.toLowerCase();
+      if (!_isStopWord(handle)) keywords.add(handle);
+    }
+
+    // 3. Description ke meaningful words (3+ chars, not stopwords)
+    final descWords = row.description
+        .toLowerCase()
+        .split(RegExp(r'[\s\-_/|\\@.]+'))
+        .where(
+          (w) =>
+              w.length >= 3 && !_isStopWord(w) && !RegExp(r'^\d+$').hasMatch(w),
+        )
+        .take(3);
+    keywords.addAll(descWords);
+
+    return keywords.toList();
+  }
+
+  static const _stopWords = {
+    'upi',
+    'neft',
+    'imps',
+    'rtgs',
+    'ref',
+    'txn',
+    'trf',
+    'the',
+    'and',
+    'for',
+    'via',
+    'from',
+    'bank',
+    'pay',
+    'ltd',
+    'pvt',
+    'co',
+    'corp',
+    'payment',
+    'transfer',
+    'debit',
+    'credit',
+    'purchase',
+    'order',
+    'to',
+    'by',
+    'dr',
+    'cr',
+  };
+
+  bool _isStopWord(String w) => _stopWords.contains(w.toLowerCase());
 }

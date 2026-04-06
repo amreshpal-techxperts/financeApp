@@ -1,3 +1,4 @@
+import 'package:financeapp/models/global_keyword.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/account.dart';
@@ -33,6 +34,7 @@ class DBHelper {
       masterAccountId INTEGER,
       phone TEXT, 
       createdAt TEXT NOT NULL,
+      keywords TEXT DEFAULT "",
       FOREIGN KEY (masterAccountId) REFERENCES master_accounts(id) ON DELETE SET NULL
       
       )''');
@@ -87,7 +89,17 @@ class DBHelper {
       customName TEXT NOT NULL,
       createdAt TEXT NOT NULL)''');
 
+    await db.execute('''
+    CREATE TABLE global_keywords (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      keyword TEXT NOT NULL UNIQUE,
+      tagId INTEGER NOT NULL,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY (tagId) REFERENCES tags(id) ON DELETE CASCADE
+    )''');
+
     await _seed(db);
+    await _seedGlobalKeywords(db);
   }
 
   Future<void> _seed(Database db) async {
@@ -127,6 +139,36 @@ class DBHelper {
       {'name': 'Others', 'color': '#9E9E9E'},
     ]) {
       await db.insert('tags', {...t, 'createdAt': now});
+    }
+  }
+
+  Future<void> _seedGlobalKeywords(Database db) async {
+    final now = DateTime.now().toIso8601String();
+
+    // Pehle tags ke ids fetch karo
+    final tags = await db.query('tags');
+    final tagByName = {
+      for (final t in tags) (t['name'] as String).toLowerCase(): t['id'] as int,
+    };
+
+    final defaultGlobalKws = [
+      {'keyword': 'upi', 'tagName': 'transfer'},
+      {'keyword': 'neft', 'tagName': 'transfer'},
+      {'keyword': 'imps', 'tagName': 'transfer'},
+      {'keyword': 'rtgs', 'tagName': 'transfer'},
+      {'keyword': 'transfer', 'tagName': 'transfer'},
+      {'keyword': 'atm', 'tagName': 'others'},
+      {'keyword': 'cash', 'tagName': 'others'},
+    ];
+
+    for (final kw in defaultGlobalKws) {
+      final tagId = tagByName[kw['tagName']];
+      if (tagId == null) continue;
+      await db.insert('global_keywords', {
+        'keyword': kw['keyword'],
+        'tagId': tagId,
+        'createdAt': now,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
 
@@ -566,5 +608,137 @@ class DBHelper {
         cr = amt;
     }
     return {'dr': dr, 'cr': cr};
+  }
+
+  //   Future<void> updateAccountKeywords(int accountId, List<String> keywords) async {
+  //   await (await database).update(
+  //     'accounts',
+  //     {'keywords': keywords.join(',')},
+  //     where: 'id=?',
+  //     whereArgs: [accountId],
+  //   );
+  // }
+
+  Future<void> updateAccountKeywords(
+    int accountId,
+    List<String> newKeywords,
+  ) async {
+    final db = await database;
+
+    // Fetch existing keywords first
+    final rows = await db.query(
+      'accounts',
+      columns: ['keywords'],
+      where: 'id=?',
+      whereArgs: [accountId],
+    );
+    if (rows.isEmpty) return;
+
+    final existing = (rows.first['keywords'] as String? ?? '')
+        .split(',')
+        .map((k) => k.trim().toLowerCase())
+        .where((k) => k.isNotEmpty)
+        .toSet();
+
+    for (final kw in newKeywords) {
+      final k = kw.trim().toLowerCase();
+      if (k.length >= 3) existing.add(k);
+    }
+
+    // Keep max 30 (oldest removed if overflow)
+    final merged = existing.toList();
+    if (merged.length > 30) {
+      merged.removeRange(0, merged.length - 30);
+    }
+
+    await db.update(
+      'accounts',
+      {'keywords': merged.join(',')},
+      where: 'id=?',
+      whereArgs: [accountId],
+    );
+  }
+
+  Future<void> bulkUpdateKeywords(Map<int, List<String>> keywordsToAdd) async {
+    if (keywordsToAdd.isEmpty) return;
+    for (final entry in keywordsToAdd.entries) {
+      await updateAccountKeywords(entry.key, entry.value);
+    }
+  }
+
+  Future<int> insertGlobalKeyword(GlobalKeyword gk) async {
+    return (await database).insert(
+      'global_keywords',
+      gk.toMap()..remove('id'),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  /// Sabhi global keywords fetch karo
+  Future<List<GlobalKeyword>> getAllGlobalKeywords() async {
+    final r = await (await database).query(
+      'global_keywords',
+      orderBy: 'keyword ASC',
+    );
+    return r.map(GlobalKeyword.fromMap).toList();
+  }
+
+  /// Ek tag ke saare global keywords
+  Future<List<GlobalKeyword>> getGlobalKeywordsForTag(int tagId) async {
+    final r = await (await database).query(
+      'global_keywords',
+      where: 'tagId = ?',
+      whereArgs: [tagId],
+      orderBy: 'keyword ASC',
+    );
+    return r.map(GlobalKeyword.fromMap).toList();
+  }
+
+  /// Global keyword update karo
+  Future<void> updateGlobalKeyword(GlobalKeyword gk) async =>
+      (await database).update(
+        'global_keywords',
+        gk.toMap(),
+        where: 'id = ?',
+        whereArgs: [gk.id],
+      );
+
+  /// Global keyword delete karo by id
+  Future<void> deleteGlobalKeyword(int id) async => (await database).delete(
+    'global_keywords',
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+
+  /// Keyword string se delete karo
+  Future<void> deleteGlobalKeywordByString(String keyword) async =>
+      (await database).delete(
+        'global_keywords',
+        where: 'keyword = ?',
+        whereArgs: [keyword.toLowerCase().trim()],
+      );
+
+  /// Map return karo: tagId → [keywords] (import parser ke liye)
+  Future<Map<int, List<String>>> getGlobalKeywordsMap() async {
+    final all = await getAllGlobalKeywords();
+    final map = <int, List<String>>{};
+    for (final gk in all) {
+      map.putIfAbsent(gk.tagId, () => []).add(gk.keyword.toLowerCase().trim());
+    }
+    return map;
+  }
+
+  /// Bulk upsert — import ke baad keywords save karne ke liye
+  Future<void> bulkUpsertGlobalKeywords(List<GlobalKeyword> keywords) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final gk in keywords) {
+        await txn.insert(
+          'global_keywords',
+          gk.toMap()..remove('id'),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 }
