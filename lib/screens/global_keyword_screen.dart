@@ -68,13 +68,9 @@ class _GlobalKeywordsScreenState extends State<GlobalKeywordsScreen> {
           onSubmitted: (v) => Get.back(result: v.trim().toLowerCase()),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () =>
-                Get.back(result: ctrl2.text.trim().toLowerCase()),
+            onPressed: () => Get.back(result: ctrl2.text.trim().toLowerCase()),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -101,11 +97,13 @@ class _GlobalKeywordsScreenState extends State<GlobalKeywordsScreen> {
       return;
     }
 
-    await DBHelper.instance.insertGlobalKeyword(GlobalKeyword(
-      keyword: saved,
-      tagId: tagId,
-      createdAt: DateTime.now().toIso8601String(),
-    ));
+    await DBHelper.instance.insertGlobalKeyword(
+      GlobalKeyword(
+        keyword: saved,
+        tagId: tagId,
+        createdAt: DateTime.now().toIso8601String(),
+      ),
+    );
     _load();
   }
 
@@ -154,8 +152,7 @@ class _GlobalKeywordsScreenState extends State<GlobalKeywordsScreen> {
                         child: Text(
                           'Global keywords (Tier 3) match transaction descriptions and assign a Tag. '
                           'Examples: "upi" → Transfer, "atm" → Others.',
-                          style:
-                              TextStyle(fontSize: 11, color: Colors.black54),
+                          style: TextStyle(fontSize: 11, color: Colors.black54),
                         ),
                       ),
                     ],
@@ -208,9 +205,7 @@ class _GlobalKeywordsScreenState extends State<GlobalKeywordsScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: tc.withOpacity(0.2),
-                                ),
+                                border: Border.all(color: tc.withOpacity(0.2)),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.04),
@@ -240,8 +235,9 @@ class _GlobalKeywordsScreenState extends State<GlobalKeywordsScreen> {
                                           height: 10,
                                           decoration: BoxDecoration(
                                             color: tc,
-                                            borderRadius:
-                                                BorderRadius.circular(3),
+                                            borderRadius: BorderRadius.circular(
+                                              3,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -307,8 +303,7 @@ class _GlobalKeywordsScreenState extends State<GlobalKeywordsScreen> {
                                             runSpacing: 8,
                                             children: kws.map((gk) {
                                               return Container(
-                                                padding:
-                                                    const EdgeInsets.only(
+                                                padding: const EdgeInsets.only(
                                                   left: 10,
                                                   right: 4,
                                                   top: 5,
@@ -337,20 +332,21 @@ class _GlobalKeywordsScreenState extends State<GlobalKeywordsScreen> {
                                                     ),
                                                     const SizedBox(width: 4),
                                                     GestureDetector(
-                                                      onTap: () =>
-                                                          _delete(gk),
+                                                      onTap: () => _delete(gk),
                                                       child: Container(
                                                         padding:
-                                                            const EdgeInsets
-                                                                .all(2),
+                                                            const EdgeInsets.all(
+                                                              2,
+                                                            ),
                                                         decoration:
                                                             BoxDecoration(
-                                                          color: tc.withOpacity(
-                                                            0.15,
-                                                          ),
-                                                          shape:
-                                                              BoxShape.circle,
-                                                        ),
+                                                              color: tc
+                                                                  .withOpacity(
+                                                                    0.15,
+                                                                  ),
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
                                                         child: Icon(
                                                           Icons.close,
                                                           size: 10,
@@ -383,20 +379,15 @@ class _PriorityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 9,
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: color.withOpacity(0.3)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w700),
+    ),
+  );
 }
