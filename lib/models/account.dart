@@ -68,7 +68,7 @@ class Account {
     'masterAccountId': masterAccountId,
     'phone': phone,
     'createdAt': createdAt.toIso8601String(),
-    'keywords': keywords.join(','),
+    // 'keywords': keywords.join(','),
   };
 
   factory Account.fromMap(Map<String, dynamic> m) => Account(
@@ -79,16 +79,19 @@ class Account {
     phone: m['phone'],
     masterAccountId: m['masterAccountId'],
     createdAt: DateTime.parse(m['createdAt']),
-    keywords: _parseKeywords(m['keywords']),
+
+    /// keywords: _parseKeywords(m['keywords']),
+    ///
+    keywords: [],
   );
 
-  static List<String> _parseKeywords(dynamic raw) {
-    if (raw == null || raw.toString().isEmpty) return [];
-    return raw
-        .toString()
-        .split(',')
-        .map((k) => k.trim())
-        .where((k) => k.isNotEmpty)
-        .toList();
-  }
+  // static List<String> _parseKeywords(dynamic raw) {
+  //   if (raw == null || raw.toString().isEmpty) return [];
+  //   return raw
+  //       .toString()
+  //       .split(',')
+  //       .map((k) => k.trim())
+  //       .where((k) => k.isNotEmpty)
+  //       .toList();
+  // }
 }

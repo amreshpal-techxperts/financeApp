@@ -26,6 +26,20 @@ class AppController extends GetxController {
     isLoading.value = true;
     try {
       accounts.assignAll(await DBHelper.instance.getAllAccounts());
+
+      print("accounts = $accounts");
+
+      final kwMap = await DBHelper.instance.getAllAccountKeywordsMap();
+      final accountsWithKw = accounts.map((a) {
+        return a.copyWith(keywords: kwMap[a.id] ?? []);
+      }).toList();
+
+      this.accounts.assignAll(accountsWithKw);
+
+      print("accountsWithKw = $accountsWithKw");
+
+      print("accountsWithKw = ${accountsWithKw.first.keywords}  ");
+
       tags.assignAll(await DBHelper.instance.getAllTags());
       final v = await DBHelper.instance.getVouchers();
       vouchers.assignAll(v);
@@ -48,6 +62,10 @@ class AppController extends GetxController {
   // Accounts
   Future<void> addAccount(Account a) async {
     a.id = await DBHelper.instance.insertAccount(a);
+
+    if (a.keywords.isNotEmpty) {
+      await DBHelper.instance.setAccountKeywords(a.id!, a.keywords);
+    }
     accounts.add(a);
     balances[a.id!] = a.openingBalance;
     accounts.sort((x, y) => x.name.compareTo(y.name));

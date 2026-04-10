@@ -986,6 +986,8 @@ class _ImportScreenState extends State<ImportScreen>
       // global_keywords table se: tagId → keywords
       final globalKwMap = await DBHelper.instance.getGlobalKeywordsMap();
 
+      print("global keyword $globalKwMap");
+
       // tagId → tagName
       final tagIdToName = <int, String>{
         for (final t in ctrl.tags)
@@ -1567,8 +1569,9 @@ class _ImportScreenState extends State<ImportScreen>
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           content: Text(
-            '$_unsetRows rows ka account assign nahi hai. Skip karein?',
+            '$_unsetRows rows do not have an assigned account. Do you want to skip them?',
           ),
+
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -1667,9 +1670,12 @@ class _ImportScreenState extends State<ImportScreen>
       // Keywords save karo (manual assign ke liye bhi)
       setState(() => _loadingMsg = 'Saving keywords...');
       final kwMap = <int, List<String>>{};
+      print("valid rows: $valid");
       for (final row in valid) {
         if (row.accountId == null) continue;
         final kw = _keywordsFromRow(row);
+
+        print('keywords: $kw');
         if (kw.isNotEmpty) {
           kwMap.putIfAbsent(row.accountId!, () => []).addAll(kw);
         }
@@ -1703,39 +1709,51 @@ class _ImportScreenState extends State<ImportScreen>
     }
   }
 
+  String _normalize(String s) => s
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^\w\s]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
   // ── Keyword Helpers ────────────────────────────────────
   // Description se keywords extract karo — next import mein auto-match ke liye
   List<String> _keywordsFromRow(PRowData row) {
     final keywords = <String>{};
 
-    // 1. Matched account name ke words (agar keyword se match hua tha)
+    // 🔥 1. Cleaned Name (highest priority)
     if (row.cleanedName.isNotEmpty) {
-      final words = row.cleanedName
-          .toLowerCase()
-          .split(RegExp(r'\s+'))
-          .where((w) => w.length >= 3 && !_isStopWord(w));
-      keywords.addAll(words);
+      final name = _normalize(row.cleanedName);
+      if (name.length >= 3) {
+        keywords.add(name); // full phrase
+      }
     }
 
-    // 2. UPI handle (@se pehle wala part)
+    // 🔥 2. UPI handle
     final upiMatch = RegExp(
       r'([a-zA-Z0-9]{3,})@',
     ).firstMatch(row.description.toLowerCase());
+
     if (upiMatch != null) {
       final handle = upiMatch.group(1)!.toLowerCase();
-      if (!_isStopWord(handle)) keywords.add(handle);
+      if (!_isStopWord(handle)) {
+        keywords.add(handle);
+      }
     }
 
-    // 3. Description ke meaningful words (3+ chars, not stopwords)
-    final descWords = row.description
-        .toLowerCase()
-        .split(RegExp(r'[\s\-_/|\\@.]+'))
-        .where(
-          (w) =>
-              w.length >= 3 && !_isStopWord(w) && !RegExp(r'^\d+$').hasMatch(w),
-        )
-        .take(3);
-    keywords.addAll(descWords);
+    // 🔥 3. Smart words extraction
+    final words = _normalize(
+      row.description,
+    ).split(' ').where((w) => w.length >= 3 && !_isStopWord(w)).toList();
+
+    // 👉 Add best single word (main identity)
+    if (words.isNotEmpty) {
+      keywords.add(words.last); // usually name comes last (suraj)
+    }
+
+    // 👉 Add 2-word phrase (better accuracy)
+    if (words.length >= 2) {
+      keywords.add("${words[words.length - 2]} ${words.last}");
+    }
 
     return keywords.toList();
   }

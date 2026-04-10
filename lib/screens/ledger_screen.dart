@@ -116,12 +116,11 @@ class _LedgerScreenState extends State<LedgerScreen>
 
   // ── Fetch one page from DB ─────────────────────────────
   Future<void> _fetchPage({bool isFirst = false}) async {
-    final rawRows = await DBHelper.instance.getAccountLedgerPaged(
+    final rawRows = await DBHelper.instance.getAccountLedgerWithKeyword(
       widget.account.id!,
+      widget.account.keywords,
       limit: _kPageSize,
       offset: _offset,
-      fromDate: _fromDate,
-      toDate: _toDate,
     );
 
     if (rawRows.isEmpty) {
@@ -129,40 +128,74 @@ class _LedgerScreenState extends State<LedgerScreen>
       return;
     }
 
-    // ── Opposite account names resolve + running balance ──
     final processed = <Map<String, dynamic>>[];
     double running = _runningBalance;
 
+    print("row  = $rawRows");
+
     for (final row in rawRows) {
-      final amt = (row['amount'] as num).toDouble();
-      final isDr = row['type'] == 'debit';
-      final txId = row['transactionId'] as int;
+      final txId = row['id'] as int;
 
-      running += isDr ? amt : -amt;
+      // 🔥 Get all entries of this transaction
+      final allEntries = await ctrl.getVoucherEntries(txId);
 
-      // Opposite account from cache or DB
-      final allEntries = await ctrl.getVoucherEntries(txId); // uses cache
+      // 👉 Check direct vs linked
+      final selfEntry = allEntries.firstWhereOrNull(
+        (e) => e.accountId == widget.account.id,
+      );
+
+      final isDirect = selfEntry != null;
+      final isLinked = !isDirect;
+
+      // 👉 Amount + type decide
+      double amt = 0;
+      String type = 'debit';
+
+      if (isDirect) {
+        amt = selfEntry.amount;
+        type = selfEntry.type;
+
+        // ✅ Running balance ONLY for real entries
+        running += (type == 'debit') ? amt : -amt;
+      } else {
+        // 🔗 Linked case → amount reference ke liye
+        amt = allEntries.isNotEmpty ? allEntries.first.amount : 0;
+      }
+
+      // 👉 Opposite accounts
       final oppEntries = allEntries
           .where((e) => e.accountId != widget.account.id)
           .toList();
 
       String oppName;
+
       if (oppEntries.isEmpty) {
         oppName = '—';
-      } else if (oppEntries.length == 1) {
+      } else if (!isLinked) {
+        // 👉 Direct entry → clean show
         oppName = ctrl.accountById(oppEntries.first.accountId)?.name ?? '?';
       } else {
+        // 👉 Linked entry → full context
         oppName = oppEntries
             .map((e) => ctrl.accountById(e.accountId)?.name ?? '')
             .where((n) => n.isNotEmpty)
             .join(', ');
       }
 
-      processed.add({...row, 'running': running, 'oppAcc': oppName});
+      processed.add({
+        'transactionId': txId,
+        'date': row['date'],
+        'note': row['note'],
+        'amount': amt,
+        'type': type,
+        'isLinked': isLinked ? 1 : 0,
+        'running': running,
+        'oppAcc': oppName,
+      });
     }
 
     setState(() {
-      _runningBalance = running; // agle page ke liye save
+      _runningBalance = running;
       _offset += rawRows.length;
       _rows.addAll(processed);
       _hasMore = _offset < _totalCount;
@@ -877,12 +910,6 @@ class _SectionLabel extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 class _TableHeader extends StatelessWidget {
   const _TableHeader();
-  static const _hs = TextStyle(
-    fontSize: 9,
-    fontWeight: FontWeight.w800,
-    color: Color(0xFFAAAAAA),
-    letterSpacing: 0.7,
-  );
 
   @override
   Widget build(BuildContext context) => Container(
@@ -897,42 +924,72 @@ class _TableHeader extends StatelessWidget {
         ),
       ],
     ),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
     child: Row(
-      children: const [
-        SizedBox(width: 54, child: Text('DATE', style: _hs)),
-        Expanded(child: Text('PARTICULARS', style: _hs)),
+      children: [
+        // Date col
         SizedBox(
-          width: 64,
-          child: Text(
-            'DEBIT',
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFFE53935),
-              letterSpacing: 0.7,
-            ),
+          width: 52,
+          child: _hdr('DATE', Alignment.centerLeft, const Color(0xFFAAAAAA)),
+        ),
+        // Particulars
+        const Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(left: 13),
+            child: _HdrText('PARTICULARS', TextAlign.left, Color(0xFFAAAAAA)),
           ),
         ),
-        SizedBox(
-          width: 64,
-          child: Text(
-            'CREDIT',
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF43A047),
-              letterSpacing: 0.7,
-            ),
-          ),
-        ),
+        // Debit
         SizedBox(
           width: 62,
-          child: Text('BAL', textAlign: TextAlign.right, style: _hs),
+          child: _hdr('DEBIT', Alignment.centerRight, const Color(0xFFE53935)),
+        ),
+        // Credit
+        SizedBox(
+          width: 62,
+          child: _hdr('CREDIT', Alignment.centerRight, const Color(0xFF43A047)),
+        ),
+        // Balance
+        SizedBox(
+          width: 64,
+          child: _hdr(
+            'BALANCE',
+            Alignment.centerRight,
+            const Color(0xFFAAAAAA),
+          ),
         ),
       ],
+    ),
+  );
+
+  static Widget _hdr(String t, Alignment a, Color c) => Align(
+    alignment: a,
+    child: Text(
+      t,
+      style: TextStyle(
+        fontSize: 9,
+        fontWeight: FontWeight.w800,
+        color: c,
+        letterSpacing: 0.8,
+      ),
+    ),
+  );
+}
+
+class _HdrText extends StatelessWidget {
+  final String text;
+  final TextAlign align;
+  final Color color;
+  const _HdrText(this.text, this.align, this.color);
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    textAlign: align,
+    style: TextStyle(
+      fontSize: 9,
+      fontWeight: FontWeight.w800,
+      color: color,
+      letterSpacing: 0.8,
     ),
   );
 }
@@ -958,11 +1015,22 @@ class _LedgerRow extends StatelessWidget {
     final isDr = row['type'] == 'debit';
     final amt = (row['amount'] as num).toDouble();
     final runBal = row['running'] as double;
-    final date = DateTime.tryParse(row['txDate'] ?? '');
-    final note = row['txNote'] as String? ?? '';
-    final oppAcc = row['oppAcc'] as String;
+    final isLinked = (row['isLinked'] as int? ?? 0) == 1;
 
-    // Stagger only first 30 rows
+    // ✅ KEY FIX: 'date' not 'txDate'
+    final date = DateTime.tryParse(row['date'] ?? '');
+    final note = (row['note'] as String? ?? '').trim();
+    final oppAcc = (row['oppAcc'] as String? ?? '—').trim();
+
+    // Balance display
+    final balAbs = runBal.abs();
+    final balIsDr = runBal >= 0;
+    final balColor = balIsDr
+        ? const Color(0xFFE53935)
+        : const Color(0xFF43A047);
+    final balLabel = balIsDr ? 'Dr' : 'Cr';
+
+    // Stagger animation (first 30 rows only)
     final delay = (index * 0.025).clamp(0.0, 0.6);
     final anim = CurvedAnimation(
       parent: animCtrl,
@@ -978,7 +1046,7 @@ class _LedgerRow extends StatelessWidget {
       builder: (_, child) => Opacity(
         opacity: anim.value,
         child: Transform.translate(
-          offset: Offset(0, 10 * (1 - anim.value)),
+          offset: Offset(0, 12 * (1 - anim.value)),
           child: child,
         ),
       ),
@@ -987,19 +1055,20 @@ class _LedgerRow extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           splashColor: const Color(0xFF1A237E).withOpacity(0.06),
+          highlightColor: const Color(0xFF1A237E).withOpacity(0.03),
           child: Container(
             decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: Color(0xFFF0F2F8), width: 0.8),
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Date
+                // ── DATE ────────────────────────────────────────
                 SizedBox(
-                  width: 54,
+                  width: 52,
                   child: date == null
                       ? const Text(
                           '—',
@@ -1007,75 +1076,123 @@ class _LedgerRow extends StatelessWidget {
                         )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               DateFormat('dd MMM').format(date),
                               style: const TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF2C2C54),
+                                height: 1.2,
                               ),
                             ),
                             Text(
                               DateFormat('yyyy').format(date),
                               style: const TextStyle(
                                 fontSize: 9,
-                                color: Color(0xFFAAAAAA),
+                                color: Color(0xFFBBBBBB),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
                 ),
 
-                // Particulars
+                // ── PARTICULARS ─────────────────────────────────
                 Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.only(right: 7),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isDr
-                              ? const Color(0xFFE53935)
-                              : const Color(0xFF43A047),
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              oppAcc,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                                color: Color(0xFF1A1A2E),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (note.isNotEmpty)
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Color dot (debit/credit indicator)
+                        // Container(
+                        //   width: 7,
+                        //   height: 7,
+                        //   margin: const EdgeInsets.only(right: 8, top: 1),
+                        //   decoration: BoxDecoration(
+                        //     shape: BoxShape.circle,
+                        //     color: isDr
+                        //         ? const Color(0xFFE53935)
+                        //         : const Color(0xFF43A047),
+                        //   ),
+                        // ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Opposite account name
                               Text(
-                                note,
+                                oppAcc,
                                 style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFFAAAAAA),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12.5,
+                                  color: Color(0xFF1A1A2E),
+                                  height: 1.3,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                          ],
+
+                              // Note + linked badge row
+                              if (note.isNotEmpty || isLinked)
+                                const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  if (isLinked) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFF1A237E,
+                                        ).withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'LINKED',
+                                        style: TextStyle(
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF1A237E),
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                    if (note.isNotEmpty)
+                                      const SizedBox(width: 5),
+                                  ],
+                                  if (note.isNotEmpty)
+                                    Expanded(
+                                      child: Text(
+                                        note,
+                                        style: const TextStyle(
+                                          fontSize: 10.5,
+                                          color: Color(0xFF999999),
+                                          fontStyle: FontStyle.italic,
+                                          height: 1.2,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
-                // Debit
+                // ── DEBIT ───────────────────────────────────────
                 SizedBox(
-                  width: 64,
+                  width: 62,
                   child: isDr
                       ? Text(
                           fmtAmt(amt),
@@ -1086,12 +1203,12 @@ class _LedgerRow extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                         )
-                      : null,
+                      : const Text(''),
                 ),
 
-                // Credit
+                // ── CREDIT ──────────────────────────────────────
                 SizedBox(
-                  width: 64,
+                  width: 62,
                   child: !isDr
                       ? Text(
                           fmtAmt(amt),
@@ -1102,37 +1219,32 @@ class _LedgerRow extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                         )
-                      : null,
+                      : const Text(''),
                 ),
 
-                // Running balance
+                // ── RUNNING BALANCE ─────────────────────────────
                 SizedBox(
-                  width: 62,
+                  width: 64,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        fmtAmt(runBal.abs()),
+                        fmtAmt(balAbs),
                         textAlign: TextAlign.right,
                         style: TextStyle(
-                          color: runBal >= 0
-                              ? const Color(0xFFE53935)
-                              : const Color(0xFF43A047),
-                          fontSize: 11,
+                          color: balColor,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      if (runBal != 0)
+                      if (balAbs != 0)
                         Text(
-                          runBal > 0 ? 'Dr' : 'Cr',
+                          balLabel,
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 8.5,
                             fontWeight: FontWeight.w700,
-                            color:
-                                (runBal >= 0
-                                        ? const Color(0xFFE53935)
-                                        : const Color(0xFF43A047))
-                                    .withOpacity(0.5),
+                            color: balColor.withOpacity(0.55),
                           ),
                         ),
                     ],

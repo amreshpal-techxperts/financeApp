@@ -34,7 +34,6 @@ class DBHelper {
       masterAccountId INTEGER,
       phone TEXT, 
       createdAt TEXT NOT NULL,
-      keywords TEXT DEFAULT "",
       FOREIGN KEY (masterAccountId) REFERENCES master_accounts(id) ON DELETE SET NULL
       
       )''');
@@ -90,6 +89,17 @@ class DBHelper {
       createdAt TEXT NOT NULL)''');
 
     await db.execute('''
+      CREATE TABLE account_keywords (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      accountId INTEGER NOT NULL,
+      keyword TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      UNIQUE(accountId, keyword)
+      FOREIGN KEY (accountId) REFERENCES accounts(id) ON DELETE CASCADE
+      )
+      ''');
+
+    await db.execute('''
     CREATE TABLE global_keywords (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       keyword TEXT NOT NULL UNIQUE,
@@ -113,12 +123,12 @@ class DBHelper {
 
     for (var e in [
       'Food & Dining',
-      'Shopping',
-      'Travel',
-      'Medical',
-      'Office',
-      'Entertainment',
-      'Bills & Utilities',
+      // 'Shopping',
+      // 'Travel',
+      // 'Medical',
+      // 'Office',
+      // 'Entertainment',
+      // 'Bills & Utilities',
       'Education',
     ]) {
       await db.insert('accounts', {
@@ -134,9 +144,9 @@ class DBHelper {
       {'name': 'Shopping', 'color': '#2196F3'},
       {'name': 'Travel', 'color': '#4CAF50'},
       {'name': 'Medical', 'color': '#F44336'},
-      {'name': 'Loan', 'color': '#FF9800'},
-      {'name': 'Transfer', 'color': '#607D8B'},
-      {'name': 'Others', 'color': '#9E9E9E'},
+      // {'name': 'Loan', 'color': '#FF9800'},
+      // {'name': 'Transfer', 'color': '#607D8B'},
+      // {'name': 'Others', 'color': '#9E9E9E'},
     ]) {
       await db.insert('tags', {...t, 'createdAt': now});
     }
@@ -625,38 +635,25 @@ class DBHelper {
   ) async {
     final db = await database;
 
-    // Fetch existing keywords first
-    final rows = await db.query(
-      'accounts',
-      columns: ['keywords'],
-      where: 'id=?',
-      whereArgs: [accountId],
-    );
-    if (rows.isEmpty) return;
-
-    final existing = (rows.first['keywords'] as String? ?? '')
-        .split(',')
-        .map((k) => k.trim().toLowerCase())
-        .where((k) => k.isNotEmpty)
-        .toSet();
-
     for (final kw in newKeywords) {
       final k = kw.trim().toLowerCase();
-      if (k.length >= 3) existing.add(k);
-    }
 
-    // Keep max 30 (oldest removed if overflow)
-    final merged = existing.toList();
-    if (merged.length > 30) {
-      merged.removeRange(0, merged.length - 30);
-    }
+      if (k.length < 3) continue;
 
-    await db.update(
-      'accounts',
-      {'keywords': merged.join(',')},
-      where: 'id=?',
-      whereArgs: [accountId],
-    );
+      try {
+        await db.insert(
+          'account_keywords',
+          {
+            'accountId': accountId,
+            'keyword': k,
+            'createdAt': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore, // duplicate skip
+        );
+      } catch (_) {
+        // ignore error
+      }
+    }
   }
 
   Future<void> bulkUpdateKeywords(Map<int, List<String>> keywordsToAdd) async {
@@ -740,5 +737,120 @@ class DBHelper {
         );
       }
     });
+  }
+
+  Future<List<String>> getKeywordsForAccount(int accountId) async {
+    final rows = await (await database).query(
+      'account_keywords',
+      columns: ['keyword'],
+      where: 'accountId = ?',
+      whereArgs: [accountId],
+      orderBy: 'createdAt ASC',
+    );
+    return rows.map((r) => r['keyword'] as String).toList();
+  }
+
+  Future<Map<int, List<String>>> getAllAccountKeywordsMap() async {
+    final rows = await (await database).query(
+      'account_keywords',
+      columns: ['accountId', 'keyword'],
+      orderBy: 'accountId ASC, createdAt ASC',
+    );
+    final map = <int, List<String>>{};
+    for (final r in rows) {
+      final id = r['accountId'] as int;
+      map.putIfAbsent(id, () => []).add(r['keyword'] as String);
+    }
+
+    print("map = $map");
+    return map;
+  }
+
+  Future<void> setAccountKeywords(int accountId, List<String> keywords) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      await txn.delete(
+        'account_keywords',
+        where: 'accountId = ?',
+        whereArgs: [accountId],
+      );
+      for (final kw in keywords) {
+        final k = kw.trim().toLowerCase();
+        if (k.length < 2) continue;
+        await txn.insert('account_keywords', {
+          'accountId': accountId,
+          'keyword': k,
+          'createdAt': now,
+        });
+      }
+    });
+  }
+
+  Future<void> addKeywordsForAccount(
+    int accountId,
+    List<String> newKeywords,
+  ) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+
+    // Existing fetch karo
+    final existing = (await getKeywordsForAccount(accountId)).toSet();
+
+    await db.transaction((txn) async {
+      for (final kw in newKeywords) {
+        final k = kw.trim().toLowerCase();
+        if (k.length < 2 || existing.contains(k)) continue;
+        await txn.insert('account_keywords', {
+          'accountId': accountId,
+          'keyword': k,
+          'createdAt': now,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        existing.add(k);
+      }
+    });
+  }
+
+  Future<void> bulkAddKeywords(Map<int, List<String>> keywordsMap) async {
+    for (final entry in keywordsMap.entries) {
+      await addKeywordsForAccount(entry.key, entry.value);
+    }
+  }
+
+  Future<void> deleteAccountKeyword(int accountId, String keyword) async =>
+      (await database).delete(
+        'account_keywords',
+        where: 'accountId = ? AND keyword = ?',
+        whereArgs: [accountId, keyword.toLowerCase().trim()],
+      );
+
+  Future<List<Map<String, dynamic>>> getAccountLedgerWithKeyword(
+    int accountId,
+    List<String> keywords, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final db = await database;
+
+    final keywordConditions = keywords
+        .map((k) => "LOWER(t.note) LIKE '%${k.toLowerCase()}%'")
+        .join(" OR ");
+
+    final result = await db.rawQuery(
+      '''
+    SELECT DISTINCT t.id, t.date, t.note
+    FROM transactions t
+    LEFT JOIN entries e ON e.transactionId = t.id
+    WHERE (
+      e.accountId = ?
+      ${keywords.isNotEmpty ? "OR ($keywordConditions)" : ""}
+    )
+    ORDER BY t.date DESC
+    LIMIT $limit OFFSET $offset
+  ''',
+      [accountId],
+    );
+
+    return result;
   }
 }

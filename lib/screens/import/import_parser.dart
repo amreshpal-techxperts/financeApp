@@ -16,24 +16,61 @@ import 'dart:convert';
 
 // ── Column Synonyms ────────────────────────────────────────────────────
 const kDateSynonyms = [
-  'date', 'txn date', 'transaction date', 'value date', 'posting date',
-  'tran date', 'entry date', 'book date', 'trade date', 'settlement date',
-  'process date', 'trans date', 'chq date',
+  'date',
+  'txn date',
+  'transaction date',
+  'value date',
+  'posting date',
+  'tran date',
+  'entry date',
+  'book date',
+  'trade date',
+  'settlement date',
+  'process date',
+  'trans date',
+  'chq date',
 ];
 const kCreditSynonyms = [
-  'credit', 'deposit', 'credit amount', 'deposit amount', 'received',
-  'credit(cr)', 'deposit amt', 'credit amt', 'cr amount', 'inward',
-  'amt in', 'amount in', 'credit(inr)',
+  'credit',
+  'deposit',
+  'credit amount',
+  'deposit amount',
+  'received',
+  'credit(cr)',
+  'deposit amt',
+  'credit amt',
+  'cr amount',
+  'inward',
+  'amt in',
+  'amount in',
+  'credit(inr)',
 ];
 const kDebitSynonyms = [
-  'debit', 'withdrawal', 'debit amount', 'withdraw', 'payment',
-  'debit(dr)', 'withdrawal amt', 'debit amt', 'dr amount', 'amt out',
-  'amount out', 'debit(inr)',
+  'debit',
+  'withdrawal',
+  'debit amount',
+  'withdraw',
+  'payment',
+  'debit(dr)',
+  'withdrawal amt',
+  'debit amt',
+  'dr amount',
+  'amt out',
+  'amount out',
+  'debit(inr)',
 ];
 const kDescSynonyms = [
-  'description', 'narration', 'particulars', 'details', 'remarks',
-  'transaction details', 'txn description', 'transaction narration',
-  'reference', 'chq no / ref no', 'transaction remark',
+  'description',
+  'narration',
+  'particulars',
+  'details',
+  'remarks',
+  'transaction details',
+  'txn description',
+  'transaction narration',
+  'reference',
+  'chq no / ref no',
+  'transaction remark',
 ];
 
 // ── Column Detection ───────────────────────────────────────────────────
@@ -59,18 +96,28 @@ _ColIdx? _detectColumns(List<dynamic> header) {
       descIdx = i;
       continue;
     }
-    if (debitIdx == null && kDebitSynonyms.any((s) => h == s || h.contains(s))) {
+    if (debitIdx == null &&
+        kDebitSynonyms.any((s) => h == s || h.contains(s))) {
       debitIdx = i;
       continue;
     }
-    if (creditIdx == null && kCreditSynonyms.any((s) => h == s || h.contains(s))) {
+    if (creditIdx == null &&
+        kCreditSynonyms.any((s) => h == s || h.contains(s))) {
       creditIdx = i;
     }
   }
-  if (dateIdx == null || descIdx == null || debitIdx == null || creditIdx == null) {
+  if (dateIdx == null ||
+      descIdx == null ||
+      debitIdx == null ||
+      creditIdx == null) {
     return null;
   }
-  return _ColIdx(date: dateIdx, desc: descIdx, debit: debitIdx, credit: creditIdx);
+  return _ColIdx(
+    date: dateIdx,
+    desc: descIdx,
+    debit: debitIdx,
+    credit: creditIdx,
+  );
 }
 
 int? _findHeaderRowIndex(List<List<dynamic>> rows) {
@@ -87,11 +134,15 @@ ParseResult doParse(ParseParams p) {
   // ── CSV Parse ────────────────────────────────────────────────────────
   List<List<dynamic>> rows;
   try {
-    final content = p.csvContent.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final content = p.csvContent
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
     rows = const CsvToListConverter().convert(content, eol: '\n');
   } catch (_) {
     return const ParseResult(
-      rows: [], dupCount: 0, invalidCount: 0,
+      rows: [],
+      dupCount: 0,
+      invalidCount: 0,
       warnings: ['CSV parse failed.'],
     );
   }
@@ -102,15 +153,22 @@ ParseResult doParse(ParseParams p) {
 
   if (cleanRows.isEmpty) {
     return const ParseResult(
-      rows: [], dupCount: 0, invalidCount: 0, warnings: ['CSV is empty.'],
+      rows: [],
+      dupCount: 0,
+      invalidCount: 0,
+      warnings: ['CSV is empty.'],
     );
   }
 
   final headerIdx = _findHeaderRowIndex(cleanRows);
   if (headerIdx == null) {
     return ParseResult(
-      rows: [], dupCount: 0, invalidCount: 0,
-      warnings: ['Could not detect columns. First row: "${cleanRows[0].join(' | ')}"'],
+      rows: [],
+      dupCount: 0,
+      invalidCount: 0,
+      warnings: [
+        'Could not detect columns. First row: "${cleanRows[0].join(' | ')}"',
+      ],
     );
   }
 
@@ -132,7 +190,7 @@ ParseResult doParse(ParseParams p) {
   };
 
   final accountKwMap = <int, List<String>>{};
-  final partyKwMap   = <int, List<String>>{};
+  final partyKwMap = <int, List<String>>{};
 
   for (final entry in p.keywordsMap.entries) {
     final acc = accountById[entry.key];
@@ -146,63 +204,80 @@ ParseResult doParse(ParseParams p) {
   }
 
   // ── Process rows ─────────────────────────────────────────────────────
-  final result     = <PRowData>[];
-  int dupCount     = 0;
+  final result = <PRowData>[];
+  int dupCount = 0;
   int invalidCount = 0;
-  final warnings   = <String>[];
+  final warnings = <String>[];
 
   for (int i = headerIdx + 1; i < cleanRows.length; i++) {
     final row = cleanRows[i];
-    if (row.length <= cols.credit) { invalidCount++; continue; }
+    if (row.length <= cols.credit) {
+      invalidCount++;
+      continue;
+    }
 
     final dateStr = row[cols.date].toString().trim();
-    final desc    = row[cols.desc].toString().trim();
-    final debit   = double.tryParse(
-      row[cols.debit].toString().replaceAll(RegExp(r'[, ]'), '')) ?? 0;
-    final credit  = double.tryParse(
-      row[cols.credit].toString().replaceAll(RegExp(r'[, ]'), '')) ?? 0;
+    final desc = row[cols.desc].toString().trim();
+    final debit =
+        double.tryParse(
+          row[cols.debit].toString().replaceAll(RegExp(r'[, ]'), ''),
+        ) ??
+        0;
+    final credit =
+        double.tryParse(
+          row[cols.credit].toString().replaceAll(RegExp(r'[, ]'), ''),
+        ) ??
+        0;
 
-    if (dateStr.isEmpty)           { invalidCount++; continue; }
-    if (debit == 0 && credit == 0) { invalidCount++; continue; }
+    if (dateStr.isEmpty) {
+      invalidCount++;
+      continue;
+    }
+    if (debit == 0 && credit == 0) {
+      invalidCount++;
+      continue;
+    }
 
-    final amount  = debit > 0 ? debit : credit;
-    final txHash  = generateTxHash(dateStr, desc, amount);
-    final isDup   = p.existingTxKeys.contains(txHash);
+    final amount = debit > 0 ? debit : credit;
+    final txHash = generateTxHash(dateStr, desc, amount);
+    final isDup = p.existingTxKeys.contains(txHash);
     if (isDup) dupCount++;
 
     // ── KEYWORD MATCHING ───────────────────────────────────────────────
     final result3 = _matchKeywords(
-      description   : desc,
-      accountKwMap  : accountKwMap,
-      partyKwMap    : partyKwMap,
-      globalKwMap   : p.globalKeywordsMap,
-      tagIdToName   : p.tagIdToName,
-      accountById   : accountById,
-      fallbackTags  : p.tags,
+      description: desc,
+      accountKwMap: accountKwMap,
+      partyKwMap: partyKwMap,
+      globalKwMap: p.globalKeywordsMap,
+      tagIdToName: p.tagIdToName,
+      accountById: accountById,
+      fallbackTags: p.tags,
     );
 
-    result.add(PRowData(
-      date        : dateStr,
-      txHash      : txHash,
-      description : desc,
-      cleanedName : result3.matchedName ?? '',   // only if keyword matched
-      debit       : debit,
-      credit      : credit,
-      accountId   : result3.accountId,
-      accountName : result3.matchedName,          // null = unassigned
-      accountType : result3.accountType ?? 'expense',
-      tag         : result3.tagName,
-      isNewAccount: false,                        // NEVER auto-create
-      isDuplicate : isDup,
-      skip        : isDup,
-    ));
+    result.add(
+      PRowData(
+        date: dateStr,
+        txHash: txHash,
+        description: desc,
+        cleanedName: result3.matchedName ?? '', // only if keyword matched
+        debit: debit,
+        credit: credit,
+        accountId: result3.accountId,
+        accountName: result3.matchedName, // null = unassigned
+        accountType: result3.accountType ?? 'expense',
+        tag: result3.tagName,
+        isNewAccount: false, // NEVER auto-create
+        isDuplicate: isDup,
+        skip: isDup,
+      ),
+    );
   }
 
   return ParseResult(
-    rows         : result,
-    dupCount     : dupCount,
-    invalidCount : invalidCount,
-    warnings     : warnings,
+    rows: result,
+    dupCount: dupCount,
+    invalidCount: invalidCount,
+    warnings: warnings,
   );
 }
 
@@ -211,7 +286,7 @@ ParseResult doParse(ParseParams p) {
 // ══════════════════════════════════════════════════════════════════════
 
 class _MatchResult {
-  final int?    accountId;
+  final int? accountId;
   final String? matchedName;
   final String? accountType;
   final String? tagName;
@@ -229,31 +304,31 @@ _MatchResult _matchKeywords({
   required Map<int, List<String>> accountKwMap,
   required Map<int, List<String>> partyKwMap,
   required Map<int, List<String>> globalKwMap,
-  required Map<int, String>       tagIdToName,
+  required Map<int, String> tagIdToName,
   required Map<int, Map<String, dynamic>> accountById,
-  required List<String>           fallbackTags,
+  required List<String> fallbackTags,
 }) {
   final desc = _normalize(description);
 
-  int?    accountId;
+  int? accountId;
   String? matchedName;
   String? accountType;
   String? tagName;
-  int     longestAccountKw = 0;
-  int     longestPartyKw   = 0;
-  int     longestGlobalKw  = 0;
+  int longestAccountKw = 0;
+  int longestPartyKw = 0;
+  int longestGlobalKw = 0;
 
   // ── P1: Account Keywords (expense / income / bank / cash / wallet) ──
   for (final entry in accountKwMap.entries) {
     for (final kw in entry.value) {
       final kwL = kw.toLowerCase().trim();
-      if (kwL.length < 2)            continue;
-      if (!desc.contains(kwL))       continue;
+      if (kwL.length < 2) continue;
+      if (!desc.contains(kwL)) continue;
       if (kwL.length <= longestAccountKw) continue;
 
       longestAccountKw = kwL.length;
       final acc = accountById[entry.key]!;
-      accountId   = entry.key;
+      accountId = entry.key;
       matchedName = acc['name'] as String;
       accountType = acc['type'] as String;
     }
@@ -265,40 +340,40 @@ _MatchResult _matchKeywords({
     for (final entry in partyKwMap.entries) {
       for (final kw in entry.value) {
         final kwL = kw.toLowerCase().trim();
-        if (kwL.length < 2)           continue;
-        if (!desc.contains(kwL))      continue;
+        if (kwL.length < 2) continue;
+        if (!desc.contains(kwL)) continue;
         if (kwL.length <= longestPartyKw) continue;
 
         longestPartyKw = kwL.length;
         final acc = accountById[entry.key]!;
-        accountId   = entry.key;
+        accountId = entry.key;
         matchedName = acc['name'] as String;
         accountType = acc['type'] as String;
       }
     }
   }
 
-  // ── P3: Global Keywords → Tag (works independently) ─────────────────
-  for (final entry in globalKwMap.entries) {
-    for (final kw in entry.value) {
-      final kwL = kw.toLowerCase().trim();
-      if (kwL.length < 2)           continue;
-      if (!desc.contains(kwL))      continue;
-      if (kwL.length <= longestGlobalKw) continue;
+  // // ── P3: Global Keywords → Tag (works independently) ─────────────────
+  // for (final entry in globalKwMap.entries) {
+  //   for (final kw in entry.value) {
+  //     final kwL = kw.toLowerCase().trim();
+  //     if (kwL.length < 2) continue;
+  //     if (!desc.contains(kwL)) continue;
+  //     if (kwL.length <= longestGlobalKw) continue;
 
-      longestGlobalKw = kwL.length;
-      tagName = tagIdToName[entry.key];
-    }
-  }
+  //     longestGlobalKw = kwL.length;
+  //     tagName = tagIdToName[entry.key];
+  //   }
+  // }
 
   // If no global match, try guessTag as fallback (optional)
   tagName ??= guessTag(description.toUpperCase(), fallbackTags);
 
   return _MatchResult(
-    accountId   : accountId,
-    matchedName : matchedName,
-    accountType : accountType,
-    tagName     : tagName,
+    accountId: accountId,
+    matchedName: matchedName,
+    accountType: accountType,
+    tagName: tagName,
   );
 }
 
@@ -311,15 +386,30 @@ String _normalize(String s) => s
 // ── Tag Guesser (fallback only) ────────────────────────────────────────
 String? guessTag(String d, List<String> tags) {
   const keywordToTag = {
-    'ZOMATO': 'Food', 'SWIGGY': 'Food', 'RESTAURANT': 'Food',
-    'IRCTC': 'Travel', 'MAKEMYTRIP': 'Travel', 'UBER': 'Travel', 'OLA': 'Travel',
-    'AMAZON': 'Shopping', 'FLIPKART': 'Shopping', 'MYNTRA': 'Shopping',
-    'ELECTRICITY': 'Bills & Utilities', 'AIRTEL': 'Bills & Utilities',
-    'JIO': 'Bills & Utilities', 'VODAFONE': 'Bills & Utilities',
-    'HOSPITAL': 'Medical', 'PHARMACY': 'Medical', 'APOLLO': 'Medical',
-    'NEFT': 'Transfer', 'IMPS': 'Transfer', 'RTGS': 'Transfer',
-    'TRANSFER': 'Transfer', 'UPI': 'Transfer',
-    'ATM': 'Others', 'CASH': 'Others',
+    'ZOMATO': 'Food',
+    'SWIGGY': 'Food',
+    'RESTAURANT': 'Food',
+    'IRCTC': 'Travel',
+    'MAKEMYTRIP': 'Travel',
+    'UBER': 'Travel',
+    'OLA': 'Travel',
+    'AMAZON': 'Shopping',
+    'FLIPKART': 'Shopping',
+    'MYNTRA': 'Shopping',
+    'ELECTRICITY': 'Bills & Utilities',
+    'AIRTEL': 'Bills & Utilities',
+    'JIO': 'Bills & Utilities',
+    'VODAFONE': 'Bills & Utilities',
+    'HOSPITAL': 'Medical',
+    'PHARMACY': 'Medical',
+    'APOLLO': 'Medical',
+    'NEFT': 'Transfer',
+    'IMPS': 'Transfer',
+    'RTGS': 'Transfer',
+    'TRANSFER': 'Transfer',
+    'UPI': 'Transfer',
+    'ATM': 'Others',
+    'CASH': 'Others',
   };
 
   for (final entry in keywordToTag.entries) {
