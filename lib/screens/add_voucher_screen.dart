@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:async';
+
 import 'package:financeapp/database/db_helper.dart';
 import 'package:financeapp/models/account.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +12,6 @@ import '../controllers/master_account_controller.dart';
 import '../models/entry.dart';
 import '../models/tx_voucher.dart';
 import '../utils/constants.dart';
-import 'tags_screen.dart';
 
 class AddVoucherScreen extends StatefulWidget {
   final TxVoucher? existing;
@@ -25,21 +26,41 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
   final ctrl = Get.find<AppController>();
   final maCtrl = Get.find<MasterAccountController>();
   final _noteCtrl = TextEditingController();
+  final _addKwCtrl = TextEditingController(); // ✅ for add keyword dialog
   DateTime _date = DateTime.now();
   final List<Map<String, dynamic>> _rows = [];
   int? _selectedMAId;
-  int? _selectedTagId; // ✅ Voucher-level tag
+  int? _selectedTagId;
+
+  Set<String> _liveKeywords = {}; // ✅ live keywords state
+
+  Set<String> _removedKeywords = {};
 
   bool get _isEdit => widget.existing != null;
+  Timer? _kwTimer;
 
   @override
   void initState() {
     super.initState();
+
+    // ✅ Real-time keyword extraction from note
+    _noteCtrl.addListener(() {
+      _kwTimer?.cancel(); // pehla timer cancel karo
+      _kwTimer = Timer(const Duration(milliseconds: 700), () {
+        // 600ms baad extract karo jab user ruk jaye
+        final extracted = _extractKeywords(
+          _noteCtrl.text,
+        ).toSet().difference(_removedKeywords);
+        setState(() {
+          _liveKeywords = {..._liveKeywords, ...extracted};
+        });
+      });
+    });
     if (_isEdit) {
       _date = widget.existing!.date;
       _noteCtrl.text = widget.existing!.note;
       _selectedMAId = widget.existing!.masterAccountId;
-      _selectedTagId = widget.existing!.tagId; // ✅ Load existing tag
+      _selectedTagId = widget.existing!.tagId;
       for (var e in widget.existingEntries ?? []) {
         _rows.add({
           'accountId': e.accountId,
@@ -72,13 +93,17 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
       _addRow('credit');
       _noteCtrl.clear();
       _date = DateTime.now();
-      _selectedTagId = null; // ✅ Reset tag
+      _selectedTagId = null;
+      _liveKeywords = {};
+      _removedKeywords = {};
     });
   }
 
   @override
   void dispose() {
+    _kwTimer?.cancel();
     _noteCtrl.dispose();
+    _addKwCtrl.dispose(); // ✅ dispose
     for (var r in _rows) {
       (r['amountCtrl'] as TextEditingController).dispose();
     }
@@ -116,10 +141,51 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
         .toLowerCase()
         .replaceAll(RegExp(r'[^\w\s]'), ' ')
         .split(' ')
-        .where((w) => w.length >= 3)
+        .where((w) => w.length > 3)
         .toList();
+    return words;
+  }
 
-    return words.where((w) => w.length > 3).toList(); // simple start
+  // ✅ Add keyword dialog
+  void _showAddKeywordDialog() {
+    _addKwCtrl.clear();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Add Keyword', style: TextStyle(fontSize: 15)),
+        content: TextField(
+          controller: _addKwCtrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.none,
+          decoration: InputDecoration(
+            hintText: 'e.g. petrol',
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () {
+              final val = _addKwCtrl.text.trim().toLowerCase();
+              if (val.isNotEmpty) {
+                setState(() => _liveKeywords.add(val));
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Add', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -313,10 +379,112 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
-            // ✅ Voucher-level Tag Picker
-            //  _buildTagPicker(),
+            // ✅ Live Keywords Section
+            if (!_isEdit &&
+                (_liveKeywords.isNotEmpty || _noteCtrl.text.isNotEmpty))
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Keywords',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        // ✅ Keyword chips
+                        ..._liveKeywords.map(
+                          (k) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.blue.withOpacity(0.25),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  k,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                GestureDetector(
+                                  onTap: () => setState(() {
+                                    _liveKeywords.remove(k);
+                                    _removedKeywords.add(k); // ✅ blacklist
+                                  }),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 13,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // ✅ + Add button
+                        GestureDetector(
+                          onTap: _showAddKeywordDialog,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, size: 13, color: Colors.grey),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Add',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
             const SizedBox(height: 80),
           ],
         ),
@@ -337,77 +505,6 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
     );
   }
 
-  // // ✅ Voucher-level tag picker widget
-  // Widget _buildTagPicker() {
-  //   final selTag = _selectedTagId != null
-  //       ? ctrl.tagById(_selectedTagId!)
-  //       : null;
-  //   return GestureDetector(
-  //     onTap: _pickTag,
-  //     child: Container(
-  //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-  //       decoration: BoxDecoration(
-  //         color: selTag != null
-  //             ? hexColor(selTag.color).withOpacity(0.06)
-  //             : Colors.white,
-  //         borderRadius: BorderRadius.circular(10),
-  //         border: Border.all(
-  //           color: selTag != null
-  //               ? hexColor(selTag.color).withOpacity(0.4)
-  //               : Colors.grey.shade200,
-  //         ),
-  //       ),
-  //       child: Row(
-  //         children: [
-  //           Icon(
-  //             Icons.label_outline,
-  //             size: 18,
-  //             color: selTag != null ? hexColor(selTag.color) : Colors.grey,
-  //           ),
-  //           const SizedBox(width: 10),
-  //           Expanded(
-  //             child: selTag == null
-  //                 ? const Text(
-  //                     'Add tag...',
-  //                     style: TextStyle(color: Colors.grey, fontSize: 13),
-  //                   )
-  //                 : Row(
-  //                     children: [
-  //                       Container(
-  //                         width: 8,
-  //                         height: 8,
-  //                         decoration: BoxDecoration(
-  //                           color: hexColor(selTag.color),
-  //                           borderRadius: BorderRadius.circular(2),
-  //                         ),
-  //                       ),
-  //                       const SizedBox(width: 6),
-  //                       Text(
-  //                         selTag.name,
-  //                         style: TextStyle(
-  //                           color: hexColor(selTag.color),
-  //                           fontWeight: FontWeight.w600,
-  //                           fontSize: 13,
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //           ),
-  //           if (selTag != null)
-  //             GestureDetector(
-  //               onTap: () => setState(() => _selectedTagId = null),
-  //               child: Icon(
-  //                 Icons.close,
-  //                 size: 16,
-  //                 color: hexColor(selTag.color),
-  //               ),
-  //             ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
-
   Widget _buildRow(int i) {
     final row = _rows[i];
     final isDr = row['type'] == 'debit';
@@ -427,7 +524,6 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
       ),
       child: Row(
         children: [
-          // Dr/Cr toggle
           GestureDetector(
             onTap: () => setState(() {
               row['type'] = isDr ? 'credit' : 'debit';
@@ -452,8 +548,6 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
             ),
           ),
           const SizedBox(width: 8),
-
-          // Account picker
           Expanded(
             child: GestureDetector(
               onTap: () => _pickAccount(i),
@@ -492,8 +586,6 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
             ),
           ),
           const SizedBox(width: 6),
-
-          // Amount
           SizedBox(
             width: 88,
             child: TextField(
@@ -520,8 +612,6 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
               ),
             ),
           ),
-
-          // Remove row button
           SizedBox(
             width: 28,
             child: _rows.length > 2
@@ -705,151 +795,6 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
                       },
                     ),
                   ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // ✅ Voucher-level tag picker — no idx parameter
-  void _pickTag() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (ctx, ss) {
-            final tags = ctrl.tags;
-            return SizedBox(
-              height: 380,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-                    child: Row(
-                      children: [
-                        const Text(
-                          'Select Tag',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: () {
-                            setState(() => _selectedTagId = null);
-                            Navigator.pop(context);
-                          },
-                          icon: const Icon(Icons.label_off_outlined, size: 15),
-                          label: const Text(
-                            'No Tag',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.grey,
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await Get.to(() => const TagsScreen());
-                            ss(() {});
-                          },
-                          icon: const Icon(Icons.settings_outlined, size: 15),
-                          label: const Text(
-                            'Manage',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  tags.isEmpty
-                      ? const Expanded(
-                          child: Center(
-                            child: Text(
-                              'No tags — create from Manage',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ),
-                        )
-                      : Expanded(
-                          child: GridView.builder(
-                            padding: const EdgeInsets.all(12),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 8,
-                                  mainAxisSpacing: 8,
-                                  childAspectRatio: 2.4,
-                                ),
-                            itemCount: tags.length,
-                            itemBuilder: (_, i) {
-                              final tag = tags[i];
-                              final tc = hexColor(tag.color);
-                              final isSel = _selectedTagId == tag.id;
-                              return GestureDetector(
-                                onTap: () {
-                                  setState(() => _selectedTagId = tag.id);
-                                  Navigator.pop(context);
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: tc.withOpacity(isSel ? 0.18 : 0.07),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isSel ? tc : tc.withOpacity(0.3),
-                                      width: isSel ? 2 : 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        width: 9,
-                                        height: 9,
-                                        decoration: BoxDecoration(
-                                          color: tc,
-                                          borderRadius: BorderRadius.circular(
-                                            2,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Flexible(
-                                        child: Text(
-                                          tag.name,
-                                          style: TextStyle(
-                                            color: tc,
-                                            fontSize: 11,
-                                            fontWeight: isSel
-                                                ? FontWeight.bold
-                                                : FontWeight.w600,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (isSel) ...[
-                                        const SizedBox(width: 3),
-                                        Icon(Icons.check, size: 11, color: tc),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
                 ],
               ),
             );
@@ -1068,6 +1013,7 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
   Future<void> _save() async {
     if (!_isBalanced) return;
 
+    // ── Validation ─────────────────────────────
     final drIds = _rows
         .where((r) => r['type'] == 'debit' && r['accountId'] != null)
         .map((r) => r['accountId'] as int)
@@ -1099,6 +1045,7 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
       }
     }
 
+    // ── Build voucher & entries ─────────────────
     final voucher = TxVoucher(
       id: widget.existing?.id,
       date: _date,
@@ -1116,34 +1063,19 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
         accountId: row['accountId'] as int,
         type: row['type'] as String,
         amount: amt,
-        // tagId gone ✅
       );
     }).toList();
 
-    final note = _noteCtrl.text.trim().toLowerCase();
-
-    if (note.isNotEmpty) {
-      final extracted = _extractKeywords(note);
-
-      final selectedKeywords = await Get.bottomSheet<List<String>>(
-        KeywordApprovalSheet(keywords: extracted),
-        isScrollControlled: true,
-        backgroundColor: Colors.white,
-      );
-      print("selected keyword = $selectedKeywords");
-      if (selectedKeywords == null || selectedKeywords.isEmpty) {
-        return; // user cancelled
-      }
-
+    // ✅ Directly save _liveKeywords — no bottom sheet!
+    if (_liveKeywords.isNotEmpty) {
       for (var e in entries) {
         final acc = ctrl.accountById(e.accountId);
         if (acc == null) continue;
 
         if (_shouldLearn(acc)) {
-          print("account id = ${acc.id}");
           await DBHelper.instance.updateAccountKeywords(
             acc.id!,
-            selectedKeywords,
+            _liveKeywords.toList(),
           );
 
           final updatedKeywords = await DBHelper.instance.getKeywordsForAccount(
@@ -1151,18 +1083,17 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
           );
 
           final index = ctrl.accounts.indexWhere((a) => a.id == acc.id);
-
           if (index != -1) {
             ctrl.accounts[index] = ctrl.accounts[index].copyWith(
               keywords: updatedKeywords,
             );
-
-            ctrl.accounts.refresh(); // 🔥 VERY IMPORTANT
+            ctrl.accounts.refresh();
           }
         }
       }
     }
 
+    // ── Save voucher ────────────────────────────
     if (_isEdit) {
       await ctrl.updateVoucher(voucher, entries);
       Get.back();
@@ -1182,144 +1113,5 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
         colorText: Colors.white,
       );
     }
-  }
-}
-
-class KeywordApprovalSheet extends StatefulWidget {
-  final List<String> keywords;
-
-  const KeywordApprovalSheet({super.key, required this.keywords});
-
-  @override
-  State<KeywordApprovalSheet> createState() => _KeywordApprovalSheetState();
-}
-
-class _KeywordApprovalSheetState extends State<KeywordApprovalSheet> {
-  late Set<String> selected;
-
-  final TextEditingController addCtrl = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    selected = widget.keywords.toSet(); // initial keywords
-  }
-
-  @override
-  void dispose() {
-    addCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        height: MediaQuery.of(context).size.height * 0.75,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Review Keywords",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-
-            // ✅ KEYWORD LIST (UPDATED)
-            Expanded(
-              child: SingleChildScrollView(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: selected.map((k) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(k, style: const TextStyle(fontSize: 13)),
-                          const SizedBox(width: 6),
-
-                          // ❌ REMOVE BUTTON
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                selected.remove(k);
-                              });
-                            },
-                            child: const Icon(Icons.close, size: 14),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ➕ ADD NEW KEYWORD
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: addCtrl,
-                    decoration: InputDecoration(
-                      hintText: "Add keyword...",
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () {
-                    final val = addCtrl.text.trim().toLowerCase();
-
-                    if (val.isNotEmpty) {
-                      setState(() {
-                        selected.add(val); // ✅ ADD
-                      });
-                      addCtrl.clear();
-                    }
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 14),
-
-            // ✅ CONFIRM BUTTON
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context, selected.toList());
-                },
-                child: const Text("Confirm"),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

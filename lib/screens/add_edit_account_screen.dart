@@ -394,7 +394,6 @@ class _KeywordsSectionState extends State<_KeywordsSection> {
 
   // ── DB Sync ───────────────────────────────────────────────
 
- 
   Future<void> _persistKeywords() async {
     final id = widget.controller.account?.id;
     if (id == null) return;
@@ -521,30 +520,30 @@ class _KeywordsSectionState extends State<_KeywordsSection> {
     ],
   );
 
-  Widget _buildInfoBanner() => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppColors.primary.withOpacity(0.04),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.primary.withOpacity(0.12)),
-    ),
-    child: Row(
-      children: [
-        Icon(
-          Icons.auto_awesome_outlined,
-          size: 14,
-          color: AppColors.primary.withOpacity(0.7),
-        ),
-        const SizedBox(width: 8),
-        const Expanded(
-          child: Text(
-            'Whenever these keywords are found in a transaction description, it will automatically be assigned to this account.',
-            style: TextStyle(fontSize: 11, color: Colors.black54),
-          ),
-        ),
-      ],
-    ),
-  );
+  // Widget _buildInfoBanner() => Container(
+  //   padding: const EdgeInsets.all(12),
+  //   decoration: BoxDecoration(
+  //     color: AppColors.primary.withOpacity(0.04),
+  //     borderRadius: BorderRadius.circular(10),
+  //     border: Border.all(color: AppColors.primary.withOpacity(0.12)),
+  //   ),
+  //   child: Row(
+  //     children: [
+  //       Icon(
+  //         Icons.auto_awesome_outlined,
+  //         size: 14,
+  //         color: AppColors.primary.withOpacity(0.7),
+  //       ),
+  //       const SizedBox(width: 8),
+  //       const Expanded(
+  //         child: Text(
+  //           'Whenever these keywords are found in a transaction description, it will automatically be assigned to this account.',
+  //           style: TextStyle(fontSize: 11, color: Colors.black54),
+  //         ),
+  //       ),
+  //     ],
+  //   ),
+  // );
 
   Widget _buildChipsContainer() => Container(
     width: double.infinity,
@@ -577,9 +576,11 @@ class _KeywordsSectionState extends State<_KeywordsSection> {
       children: [
         Icon(Icons.info_outline, size: 14, color: Colors.grey.shade400),
         const SizedBox(width: 6),
-        Text(
-          'No keywords yet. It will learn automatically from imports.',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+        Expanded(
+          child: Text(
+            'No keywords yet. It will learn automatically from imports.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+          ),
         ),
       ],
     ),

@@ -631,47 +631,47 @@ class _ImportScreenState extends State<ImportScreen>
                           ),
                           const SizedBox(width: 8),
                           // Tag selector
-                          GestureDetector(
-                            onTap: () => _pickTag(i),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: row.tag != null
-                                    ? tc.withOpacity(0.1)
-                                    : Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: row.tag != null
-                                      ? tc.withOpacity(0.3)
-                                      : Colors.grey.shade200,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    row.tag != null
-                                        ? tagIcon(row.tag)
-                                        : Icons.label_outline,
-                                    size: 12,
-                                    color: row.tag != null ? tc : Colors.grey,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    row.tag ?? 'Tag',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: row.tag != null ? tc : Colors.grey,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          // GestureDetector(
+                          //   onTap: () => _pickTag(i),
+                          //   child: Container(
+                          //     padding: const EdgeInsets.symmetric(
+                          //       horizontal: 10,
+                          //       vertical: 6,
+                          //     ),
+                          //     decoration: BoxDecoration(
+                          //       color: row.tag != null
+                          //           ? tc.withOpacity(0.1)
+                          //           : Colors.grey.shade50,
+                          //       borderRadius: BorderRadius.circular(8),
+                          //       border: Border.all(
+                          //         color: row.tag != null
+                          //             ? tc.withOpacity(0.3)
+                          //             : Colors.grey.shade200,
+                          //       ),
+                          //     ),
+                          //     child: Row(
+                          //       mainAxisSize: MainAxisSize.min,
+                          //       children: [
+                          //         Icon(
+                          //           row.tag != null
+                          //               ? tagIcon(row.tag)
+                          //               : Icons.label_outline,
+                          //           size: 12,
+                          //           color: row.tag != null ? tc : Colors.grey,
+                          //         ),
+                          //         const SizedBox(width: 4),
+                          //         Text(
+                          //           row.tag ?? 'Tag',
+                          //           style: TextStyle(
+                          //             fontSize: 11,
+                          //             color: row.tag != null ? tc : Colors.grey,
+                          //             fontWeight: FontWeight.w600,
+                          //           ),
+                          //         ),
+                          //       ],
+                          //     ),
+                          //   ),
+                          // ),
                         ],
                       ),
                     ],
