@@ -130,58 +130,58 @@ class _GlobalKeywordsScreenState extends State<GlobalKeywordsScreen> {
           : Column(
               children: [
                 // ── Info banner ──────────────────────────────────────
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.primary.withOpacity(0.2),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 16,
-                        color: AppColors.primary.withOpacity(0.7),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Global keywords (Tier 3) match transaction descriptions and assign a Tag. '
-                          'Examples: "upi" → Transfer, "atm" → Others.',
-                          style: TextStyle(fontSize: 11, color: Colors.black54),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                // Container(
+                //   margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                //   padding: const EdgeInsets.all(12),
+                //   decoration: BoxDecoration(
+                //     color: AppColors.primary.withOpacity(0.06),
+                //     borderRadius: BorderRadius.circular(10),
+                //     border: Border.all(
+                //       color: AppColors.primary.withOpacity(0.2),
+                //     ),
+                //   ),
+                //   child: Row(
+                //     children: [
+                //       Icon(
+                //         Icons.info_outline,
+                //         size: 16,
+                //         color: AppColors.primary.withOpacity(0.7),
+                //       ),
+                //       const SizedBox(width: 10),
+                //       const Expanded(
+                //         child: Text(
+                //           'Global keywords (Tier 3) match transaction descriptions and assign a Tag. '
+                //           'Examples: "upi" → Transfer, "atm" → Others.',
+                //           style: TextStyle(fontSize: 11, color: Colors.black54),
+                //         ),
+                //       ),
+                //     ],
+                //   ),
+                // ),
                 const SizedBox(height: 8),
 
-                // ── Priority legend ──────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      _PriorityBadge(
-                        label: 'P1 Account',
-                        color: AppColors.credit,
-                      ),
-                      const SizedBox(width: 8),
-                      _PriorityBadge(
-                        label: 'P2 Party',
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      _PriorityBadge(
-                        label: 'P3 Global ← YOU ARE HERE',
-                        color: Colors.orange,
-                      ),
-                    ],
-                  ),
-                ),
+                // // ── Priority legend ──────────────────────────────────
+                // Padding(
+                //   padding: const EdgeInsets.symmetric(horizontal: 16),
+                //   child: Row(
+                //     children: [
+                //       _PriorityBadge(
+                //         label: 'P1 Account',
+                //         color: AppColors.credit,
+                //       ),
+                //       const SizedBox(width: 8),
+                //       _PriorityBadge(
+                //         label: 'P2 Party',
+                //         color: AppColors.primary,
+                //       ),
+                //       const SizedBox(width: 8),
+                //       _PriorityBadge(
+                //         label: 'P3 Global ← YOU ARE HERE',
+                //         color: Colors.orange,
+                //       ),
+                //     ],
+                //   ),
+                // ),
 
                 // ── Keywords grouped by tag ──────────────────────────
                 Expanded(

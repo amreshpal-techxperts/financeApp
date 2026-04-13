@@ -526,13 +526,13 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                 ],
                               ),
 
-                              if (tag != null) ...[
-                                const SizedBox(height: 7),
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 48),
-                                  child: _TagChip(tag: tag),
-                                ),
-                              ],
+                              // if (tag != null) ...[
+                              //   const SizedBox(height: 7),
+                              //   Padding(
+                              //     padding: const EdgeInsets.only(left: 48),
+                              //     child: _TagChip(tag: tag),
+                              //   ),
+                              // ],
                             ],
                           ),
                         ),

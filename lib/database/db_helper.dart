@@ -635,6 +635,9 @@ class DBHelper {
   ) async {
     final db = await database;
 
+    print("account id = $accountId");
+    print("new keywords = $newKeywords");
+
     for (final kw in newKeywords) {
       final k = kw.trim().toLowerCase();
 

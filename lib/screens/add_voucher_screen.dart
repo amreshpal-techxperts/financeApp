@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
+import 'package:financeapp/database/db_helper.dart';
+import 'package:financeapp/models/account.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -104,6 +106,21 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
       );
 
   bool get _isBalanced => _totalDr > 0 && (_totalDr - _totalCr).abs() < 0.01;
+
+  bool _shouldLearn(Account acc) {
+    return acc.type != 'cash' && acc.type != 'bank';
+  }
+
+  List<String> _extractKeywords(String note) {
+    final words = note
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s]'), ' ')
+        .split(' ')
+        .where((w) => w.length >= 3)
+        .toList();
+
+    return words.where((w) => w.length > 3).toList(); // simple start
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +316,7 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
             const SizedBox(height: 12),
 
             // ✅ Voucher-level Tag Picker
-            _buildTagPicker(),
+            //  _buildTagPicker(),
             const SizedBox(height: 80),
           ],
         ),
@@ -320,76 +337,76 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
     );
   }
 
-  // ✅ Voucher-level tag picker widget
-  Widget _buildTagPicker() {
-    final selTag = _selectedTagId != null
-        ? ctrl.tagById(_selectedTagId!)
-        : null;
-    return GestureDetector(
-      onTap: _pickTag,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: selTag != null
-              ? hexColor(selTag.color).withOpacity(0.06)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selTag != null
-                ? hexColor(selTag.color).withOpacity(0.4)
-                : Colors.grey.shade200,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.label_outline,
-              size: 18,
-              color: selTag != null ? hexColor(selTag.color) : Colors.grey,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: selTag == null
-                  ? const Text(
-                      'Add tag...',
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
-                    )
-                  : Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: hexColor(selTag.color),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          selTag.name,
-                          style: TextStyle(
-                            color: hexColor(selTag.color),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-            if (selTag != null)
-              GestureDetector(
-                onTap: () => setState(() => _selectedTagId = null),
-                child: Icon(
-                  Icons.close,
-                  size: 16,
-                  color: hexColor(selTag.color),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  // // ✅ Voucher-level tag picker widget
+  // Widget _buildTagPicker() {
+  //   final selTag = _selectedTagId != null
+  //       ? ctrl.tagById(_selectedTagId!)
+  //       : null;
+  //   return GestureDetector(
+  //     onTap: _pickTag,
+  //     child: Container(
+  //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+  //       decoration: BoxDecoration(
+  //         color: selTag != null
+  //             ? hexColor(selTag.color).withOpacity(0.06)
+  //             : Colors.white,
+  //         borderRadius: BorderRadius.circular(10),
+  //         border: Border.all(
+  //           color: selTag != null
+  //               ? hexColor(selTag.color).withOpacity(0.4)
+  //               : Colors.grey.shade200,
+  //         ),
+  //       ),
+  //       child: Row(
+  //         children: [
+  //           Icon(
+  //             Icons.label_outline,
+  //             size: 18,
+  //             color: selTag != null ? hexColor(selTag.color) : Colors.grey,
+  //           ),
+  //           const SizedBox(width: 10),
+  //           Expanded(
+  //             child: selTag == null
+  //                 ? const Text(
+  //                     'Add tag...',
+  //                     style: TextStyle(color: Colors.grey, fontSize: 13),
+  //                   )
+  //                 : Row(
+  //                     children: [
+  //                       Container(
+  //                         width: 8,
+  //                         height: 8,
+  //                         decoration: BoxDecoration(
+  //                           color: hexColor(selTag.color),
+  //                           borderRadius: BorderRadius.circular(2),
+  //                         ),
+  //                       ),
+  //                       const SizedBox(width: 6),
+  //                       Text(
+  //                         selTag.name,
+  //                         style: TextStyle(
+  //                           color: hexColor(selTag.color),
+  //                           fontWeight: FontWeight.w600,
+  //                           fontSize: 13,
+  //                         ),
+  //                       ),
+  //                     ],
+  //                   ),
+  //           ),
+  //           if (selTag != null)
+  //             GestureDetector(
+  //               onTap: () => setState(() => _selectedTagId = null),
+  //               child: Icon(
+  //                 Icons.close,
+  //                 size: 16,
+  //                 color: hexColor(selTag.color),
+  //               ),
+  //             ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildRow(int i) {
     final row = _rows[i];
@@ -1103,6 +1120,49 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
       );
     }).toList();
 
+    final note = _noteCtrl.text.trim().toLowerCase();
+
+    if (note.isNotEmpty) {
+      final extracted = _extractKeywords(note);
+
+      final selectedKeywords = await Get.bottomSheet<List<String>>(
+        KeywordApprovalSheet(keywords: extracted),
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+      );
+      print("selected keyword = $selectedKeywords");
+      if (selectedKeywords == null || selectedKeywords.isEmpty) {
+        return; // user cancelled
+      }
+
+      for (var e in entries) {
+        final acc = ctrl.accountById(e.accountId);
+        if (acc == null) continue;
+
+        if (_shouldLearn(acc)) {
+          print("account id = ${acc.id}");
+          await DBHelper.instance.updateAccountKeywords(
+            acc.id!,
+            selectedKeywords,
+          );
+
+          final updatedKeywords = await DBHelper.instance.getKeywordsForAccount(
+            acc.id!,
+          );
+
+          final index = ctrl.accounts.indexWhere((a) => a.id == acc.id);
+
+          if (index != -1) {
+            ctrl.accounts[index] = ctrl.accounts[index].copyWith(
+              keywords: updatedKeywords,
+            );
+
+            ctrl.accounts.refresh(); // 🔥 VERY IMPORTANT
+          }
+        }
+      }
+    }
+
     if (_isEdit) {
       await ctrl.updateVoucher(voucher, entries);
       Get.back();
@@ -1122,5 +1182,144 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
         colorText: Colors.white,
       );
     }
+  }
+}
+
+class KeywordApprovalSheet extends StatefulWidget {
+  final List<String> keywords;
+
+  const KeywordApprovalSheet({super.key, required this.keywords});
+
+  @override
+  State<KeywordApprovalSheet> createState() => _KeywordApprovalSheetState();
+}
+
+class _KeywordApprovalSheetState extends State<KeywordApprovalSheet> {
+  late Set<String> selected;
+
+  final TextEditingController addCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    selected = widget.keywords.toSet(); // initial keywords
+  }
+
+  @override
+  void dispose() {
+    addCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        height: MediaQuery.of(context).size.height * 0.75,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Review Keywords",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+
+            // ✅ KEYWORD LIST (UPDATED)
+            Expanded(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: selected.map((k) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(k, style: const TextStyle(fontSize: 13)),
+                          const SizedBox(width: 6),
+
+                          // ❌ REMOVE BUTTON
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                selected.remove(k);
+                              });
+                            },
+                            child: const Icon(Icons.close, size: 14),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ➕ ADD NEW KEYWORD
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: addCtrl,
+                    decoration: InputDecoration(
+                      hintText: "Add keyword...",
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () {
+                    final val = addCtrl.text.trim().toLowerCase();
+
+                    if (val.isNotEmpty) {
+                      setState(() {
+                        selected.add(val); // ✅ ADD
+                      });
+                      addCtrl.clear();
+                    }
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+
+            // ✅ CONFIRM BUTTON
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context, selected.toList());
+                },
+                child: const Text("Confirm"),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
