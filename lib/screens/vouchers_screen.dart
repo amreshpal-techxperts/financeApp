@@ -208,94 +208,6 @@ class _VouchersScreenState extends State<VouchersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(
-          'Transactions',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.tune_rounded),
-                  onPressed: _openFilterSheet,
-                  tooltip: 'Filter',
-                ),
-                if (_hasActiveFilter)
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: Colors.amber,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.primary, width: 1),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: (v) {
-                ctrl.searchQuery.value = v;
-                ctrl.update();
-                setState(() {});
-              },
-              decoration: InputDecoration(
-                hintText: 'Search by note...',
-                hintStyle: const TextStyle(color: Colors.white60),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: Colors.white60,
-                  size: 20,
-                ),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(
-                          Icons.clear,
-                          color: Colors.white60,
-                          size: 18,
-                        ),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          ctrl.searchQuery.value = '';
-                          ctrl.update();
-                          setState(() {});
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.15),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-              ),
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              cursorColor: Colors.white,
-            ),
-          ),
-        ),
-      ),
       body: GetBuilder<AppController>(
         builder: (c) {
           if (c.isLoading.value) {
@@ -312,9 +224,93 @@ class _VouchersScreenState extends State<VouchersScreen> {
               : null;
           final showStrip = activeMA != null || activeTag != null;
 
+          // ── Search + Filter header ──────────────────────────
+          final searchHeader = Container(
+            color: AppColors.primary,
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) {
+                      ctrl.searchQuery.value = v;
+                      ctrl.update();
+                      setState(() {});
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search by note...',
+                      hintStyle: const TextStyle(color: Colors.white60),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Colors.white60,
+                        size: 20,
+                      ),
+                      suffixIcon: _searchCtrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.clear,
+                                color: Colors.white60,
+                                size: 18,
+                              ),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                ctrl.searchQuery.value = '';
+                                ctrl.update();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.15),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    cursorColor: Colors.white,
+                  ),
+                ),
+                // Stack(
+                //   alignment: Alignment.center,
+                //   children: [
+                //     IconButton(
+                //       icon: const Icon(Icons.tune_rounded, color: Colors.white),
+                //       onPressed: _openFilterSheet,
+                //       tooltip: 'Filter',
+                //     ),
+                //     if (_hasActiveFilter)
+                //       Positioned(
+                //         top: 10,
+                //         right: 10,
+                //         child: Container(
+                //           width: 7,
+                //           height: 7,
+                //           decoration: BoxDecoration(
+                //             color: Colors.amber,
+                //             shape: BoxShape.circle,
+                //             border: Border.all(
+                //               color: AppColors.primary,
+                //               width: 1,
+                //             ),
+                //           ),
+                //         ),
+                //       ),
+                //   ],
+                // ),
+              ],
+            ),
+          );
+
           if (list.isEmpty) {
             return Column(
               children: [
+                searchHeader,
                 if (showStrip) _buildActiveStrip(c, activeMA, activeTag),
                 Expanded(
                   child: Center(
@@ -341,6 +337,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
 
           return Column(
             children: [
+              searchHeader,
               if (showStrip) _buildActiveStrip(c, activeMA, activeTag),
               Expanded(
                 child: ListView.builder(

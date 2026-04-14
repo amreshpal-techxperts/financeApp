@@ -173,7 +173,10 @@ class _LedgerScreenState extends State<LedgerScreen>
         oppName = '—';
       } else if (!isLinked) {
         // 👉 Direct entry → clean show
-        oppName = ctrl.accountById(oppEntries.first.accountId)?.name ?? '?';
+        oppName = oppEntries
+            .map((e) => ctrl.accountById(e.accountId)?.name ?? '')
+            .where((n) => n.isNotEmpty)
+            .join(', ');
       } else {
         // 👉 Linked entry → full context
         oppName = oppEntries
@@ -643,36 +646,36 @@ class _Header extends StatelessWidget {
                       ),
                     ),
                     // Filter btn with active dot
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.date_range_rounded,
-                            color: Colors.white70,
-                            size: 20,
-                          ),
-                          onPressed: onFilter,
-                        ),
-                        if (hasFilter)
-                          Positioned(
-                            top: 10,
-                            right: 10,
-                            child: Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: Colors.amber,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFF1A237E),
-                                  width: 1.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                    // Stack(
+                    //   alignment: Alignment.center,
+                    //   children: [
+                    //     IconButton(
+                    //       icon: const Icon(
+                    //         Icons.date_range_rounded,
+                    //         color: Colors.white70,
+                    //         size: 20,
+                    //       ),
+                    //       onPressed: onFilter,
+                    //     ),
+                    //     if (hasFilter)
+                    //       Positioned(
+                    //         top: 10,
+                    //         right: 10,
+                    //         child: Container(
+                    //           width: 7,
+                    //           height: 7,
+                    //           decoration: BoxDecoration(
+                    //             color: Colors.amber,
+                    //             shape: BoxShape.circle,
+                    //             border: Border.all(
+                    //               color: const Color(0xFF1A237E),
+                    //               width: 1.2,
+                    //             ),
+                    //           ),
+                    //         ),
+                    //       ),
+                    //   ],
+                    // ),
                   ],
                 ),
               ),

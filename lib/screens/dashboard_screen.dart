@@ -30,11 +30,11 @@ class DashboardScreen extends StatelessWidget {
                 flexibleSpace: FlexibleSpaceBar(
                   background: Container(
                     decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF1A237E), Color(0xFF3949AB)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      // gradient: LinearGradient(
+                      //   colors: [Color(0xFF1A237E), Color(0xFF3949AB)],
+                      //   begin: Alignment.topLeft,
+                      //   end: Alignment.bottomRight,
+                      // ),
                     ),
                     child: SafeArea(
                       child: Padding(
@@ -42,43 +42,43 @@ class DashboardScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Obx(
-                                        () => Text(
-                                          maCtrl.defaultMA.value?.name ??
-                                              'Dashboard',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.all(7),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.account_balance_wallet,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            // Row(
+                            //   children: [
+                            //     // Expanded(
+                            //     //   child: Column(
+                            //     //     crossAxisAlignment:
+                            //     //         CrossAxisAlignment.start,
+                            //     //     children: [
+                            //     //       Obx(
+                            //     //         () => Text(
+                            //     //           maCtrl.activeMA.value?.name ??
+                            //     //               'Dashboard',
+                            //     //           style: const TextStyle(
+                            //     //             color: Colors.white,
+                            //     //             fontSize: 16,
+                            //     //             fontWeight: FontWeight.bold,
+                            //     //           ),
+                            //     //           maxLines: 1,
+                            //     //           overflow: TextOverflow.ellipsis,
+                            //     //         ),
+                            //     //       ),
+                            //     //     ],
+                            //     //   ),
+                            //     // ),
+                            //     Container(
+                            //       padding: const EdgeInsets.all(7),
+                            //       decoration: BoxDecoration(
+                            //         color: Colors.white.withOpacity(0.15),
+                            //         borderRadius: BorderRadius.circular(10),
+                            //       ),
+                            //       child: const Icon(
+                            //         Icons.account_balance_wallet,
+                            //         color: Colors.white,
+                            //         size: 20,
+                            //       ),
+                            //     ),
+                            //   ],
+                            // ),
                             const SizedBox(height: 10),
                             const Text(
                               'Total Balance',

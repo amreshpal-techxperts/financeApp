@@ -34,7 +34,6 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
   @override
   Widget build(BuildContext context) {
     final appCtrl = Get.find<AppController>();
-    final maCtrl = Get.find<MasterAccountController>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -54,7 +53,6 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
             _buildPhoneField(),
             const SizedBox(height: 24),
             _KeywordsSection(controller: controller),
-            _buildMasterAccountSection(maCtrl),
             const SizedBox(height: 30),
             _buildSaveButton(appCtrl),
             if (controller.isEdit) ...[
@@ -138,89 +136,6 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
         : const SizedBox.shrink(),
   );
 
-  // ── Master Account Section ────────────────────────────────
-
-  Widget _buildMasterAccountSection(MasterAccountController maCtrl) => Obx(() {
-    final mas = maCtrl.masterAccounts;
-    if (mas.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 20),
-        _sectionLabel('Master Account'),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            children: [
-              _MATile(
-                label: 'None',
-                subtitle: 'No master account',
-                isSelected: controller.selectedMAId.value == -1,
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.block_outlined,
-                    size: 18,
-                    color: Colors.grey,
-                  ),
-                ),
-                onTap: () => controller.selectedMAId.value = -1,
-              ),
-              Divider(height: 1, color: Colors.grey.shade100),
-              ...mas.map((ma) {
-                final isSel = controller.selectedMAId.value == ma.id;
-                return Column(
-                  children: [
-                    _MATile(
-                      label: ma.name,
-                      subtitle: ma.accountNumber != null
-                          ? 'A/C: ${ma.accountNumber}'
-                          : ma.bankName ?? '',
-                      isSelected: isSel,
-                      leading: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        child: Text(
-                          ma.name[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                      trailing: ma.isDefault
-                          ? const Icon(
-                              Icons.star_rounded,
-                              size: 16,
-                              color: Colors.amber,
-                            )
-                          : null,
-                      onTap: () => controller.selectedMAId.value = ma.id!,
-                    ),
-                    if (ma != mas.last)
-                      Divider(height: 1, color: Colors.grey.shade100),
-                  ],
-                );
-              }),
-            ],
-          ),
-        ),
-      ],
-    );
-  });
-
   // ── Buttons ───────────────────────────────────────────────
 
   Widget _buildSaveButton(AppController appCtrl) => SizedBox(
@@ -270,6 +185,10 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
       return;
     }
 
+    // ✅ Auto-link to active business (Khata Book style — no user selection needed)
+    final maCtrl = Get.find<MasterAccountController>();
+    final activeMaId = maCtrl.activeMA.value?.id;
+
     final a = Account(
       id: controller.account?.id,
       name: controller.nameCtrl.text.trim(),
@@ -278,9 +197,7 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
       phone: controller.phoneCtrl.text.trim().isEmpty
           ? null
           : controller.phoneCtrl.text.trim(),
-      masterAccountId: controller.selectedMAId.value == -1
-          ? null
-          : controller.selectedMAId.value,
+      masterAccountId: activeMaId,
       keywords: controller.account?.keywords ?? [],
     );
 
@@ -740,78 +657,3 @@ class _KeywordChip extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Master Account Tile
-// ═══════════════════════════════════════════════════════════════════
-
-class _MATile extends StatelessWidget {
-  final String label;
-  final String subtitle;
-  final bool isSelected;
-  final Widget leading;
-  final Widget? trailing;
-  final VoidCallback onTap;
-
-  const _MATile({
-    required this.label,
-    required this.subtitle,
-    required this.isSelected,
-    required this.leading,
-    required this.onTap,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        color: isSelected
-            ? AppColors.primary.withOpacity(0.05)
-            : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            leading,
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: isSelected ? AppColors.primary : Colors.black87,
-                    ),
-                  ),
-                  if (subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      style: const TextStyle(color: Colors.grey, fontSize: 11),
-                    ),
-                ],
-              ),
-            ),
-            if (trailing != null) ...[const SizedBox(width: 6), trailing!],
-            const SizedBox(width: 6),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : Colors.grey.shade300,
-                  width: isSelected ? 6 : 2,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -1,6 +1,12 @@
+// ignore_for_file: deprecated_member_use
+
+import 'package:financeapp/controllers/master_account_controller.dart';
+import 'package:financeapp/database/db_helper.dart';
+import 'package:financeapp/screens/master_accounts_screen.dart';
 import 'package:financeapp/widgets/main_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../controllers/auth_controller.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -36,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     final success = await controller.login(pass);
     if (success) {
-      Get.off(() => const MainShell(), transition: Transition.fadeIn);
+      afterLogin();
     } else {
       Get.snackbar(
         'Incorrect Password',
@@ -46,6 +52,20 @@ class _LoginScreenState extends State<LoginScreen> {
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
       );
+    }
+  }
+
+  Future<void> afterLogin() async {
+    final maCtrl = Get.find<MasterAccountController>();
+    final masters = await DBHelper.instance.getMasterAccounts();
+
+    if (masters.isEmpty) {
+      // ❌ No business yet → force create first business
+      Get.offAll(() => const MasterAccountsScreen());
+    } else {
+      // ✅ Load data for the active business, then open app
+      await maCtrl.initActiveMA();
+      Get.offAll(() => const MainShell());
     }
   }
 
@@ -178,7 +198,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     backgroundColor: Colors.white,
                                     foregroundColor: const Color(0xFF3949AB),
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 15),
+                                      vertical: 15,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),

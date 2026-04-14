@@ -52,9 +52,12 @@ class DBHelper {
       tagId INTEGER,
       note TEXT, source TEXT DEFAULT 'manual',
       masterAccountId INTEGER,
-      importHash TEXT UNIQUE,
+      importHash TEXT,
       createdAt TEXT NOT NULL,
-      FOREIGN KEY (tagId) REFERENCES tags(id) ON DELETE SET NULL)''');
+      FOREIGN KEY (tagId) REFERENCES tags(id) ON DELETE SET NULL,
+      FOREIGN KEY (masterAccountId) REFERENCES master_accounts(id) ON DELETE CASCADE,
+      UNIQUE(importHash, masterAccountId)
+      )''');
 
     await db.execute('''
       CREATE TABLE entries (
@@ -108,7 +111,7 @@ class DBHelper {
       FOREIGN KEY (tagId) REFERENCES tags(id) ON DELETE CASCADE
     )''');
 
-    await _seed(db);
+    //await _seed(db);
     await _seedGlobalKeywords(db);
   }
 
@@ -185,11 +188,20 @@ class DBHelper {
   // ── ACCOUNTS ────────────────────────────────────
   Future<int> insertAccount(Account a) async =>
       (await database).insert('accounts', a.toMap()..remove('id'));
-  Future<List<Account>> getAllAccounts() async {
-    final r = await (await database).query(
-      'accounts',
-      orderBy: 'type ASC, name ASC',
-    );
+
+  Future<List<Account>> getAllAccounts({int? masterAccountId}) async {
+    final db = await database;
+    List<Map<String, dynamic>> r;
+    if (masterAccountId != null) {
+      r = await db.query(
+        'accounts',
+        where: 'masterAccountId = ?',
+        whereArgs: [masterAccountId],
+        orderBy: 'type ASC, name ASC',
+      );
+    } else {
+      r = await db.query('accounts', orderBy: 'type ASC, name ASC');
+    }
     return r.map(Account.fromMap).toList();
   }
 
@@ -228,8 +240,8 @@ class DBHelper {
     return opening + dr - cr;
   }
 
-  Future<Map<int, double>> getAllBalances() async {
-    final accounts = await getAllAccounts();
+  Future<Map<int, double>> getAllBalances({int? masterAccountId}) async {
+    final accounts = await getAllAccounts(masterAccountId: masterAccountId);
     final Map<int, double> result = {};
     for (var a in accounts) {
       result[a.id!] = await getAccountBalance(a.id!);
@@ -309,13 +321,20 @@ class DBHelper {
   Future<void> deleteVoucher(int id) async =>
       (await database).delete('transactions', where: 'id=?', whereArgs: [id]);
 
-  Future<List<TxVoucher>> getVouchers({String? search}) async {
+  Future<List<TxVoucher>> getVouchers({
+    String? search,
+    int? masterAccountId,
+  }) async {
     final db = await database;
     String where = '1=1';
     List<dynamic> args = [];
     if (search != null && search.isNotEmpty) {
       where += ' AND note LIKE ?';
       args.add('%$search%');
+    }
+    if (masterAccountId != null) {
+      where += ' AND masterAccountId = ?';
+      args.add(masterAccountId);
     }
     final r = await db.query(
       'transactions',

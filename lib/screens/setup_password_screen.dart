@@ -1,3 +1,6 @@
+import 'package:financeapp/controllers/master_account_controller.dart';
+import 'package:financeapp/database/db_helper.dart';
+import 'package:financeapp/screens/master_accounts_screen.dart';
 import 'package:financeapp/widgets/main_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -46,7 +49,21 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
     setState(() => _isLoading = true);
     await controller.setPassword(pass);
     setState(() => _isLoading = false);
-    Get.off(() => const MainShell(), transition: Transition.fadeIn);
+    afterLogin();
+  }
+
+  Future<void> afterLogin() async {
+    final maCtrl = Get.find<MasterAccountController>();
+    final masters = await DBHelper.instance.getMasterAccounts();
+
+    if (masters.isEmpty) {
+      // ❌ No business yet → force create first business
+      Get.offAll(() => const MasterAccountsScreen());
+    } else {
+      // ✅ Load data for the active business, then open app
+      await maCtrl.initActiveMA();
+      Get.offAll(() => const MainShell());
+    }
   }
 
   void _showError(String msg) {

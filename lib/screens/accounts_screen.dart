@@ -41,15 +41,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(
-          'Accounts',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
       body: GetBuilder<AppController>(
         builder: (c) {
           if (c.isLoading.value) {

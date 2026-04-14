@@ -71,7 +71,8 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
         });
       }
     } else {
-      _selectedMAId = maCtrl.defaultMA.value?.id;
+      // ✅ Auto-set from active business (Khata Book style)
+      _selectedMAId = maCtrl.activeMA.value?.id;
       _addRow('debit');
       _addRow('credit');
     }
@@ -207,10 +208,6 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Master Account Selector ──────────────
-            _buildMASelector(),
-            const SizedBox(height: 12),
-
             // ── Clear button ─────────────────────────
             if (!_isEdit)
               Align(
@@ -804,196 +801,6 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
     );
   }
 
-  Widget _buildMASelector() {
-    final mas = maCtrl.masterAccounts;
-    final selectedMA = _selectedMAId != null
-        ? maCtrl.getById(_selectedMAId!)
-        : null;
-
-    if (mas.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.account_circle_outlined, size: 16, color: Colors.grey),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'No Master Account',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: _pickMA,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: selectedMA != null
-              ? AppColors.primary.withOpacity(0.06)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selectedMA != null
-                ? AppColors.primary.withOpacity(0.4)
-                : Colors.grey.shade200,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.account_circle_outlined,
-              color: selectedMA != null ? AppColors.primary : Colors.grey,
-              size: 18,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    selectedMA != null
-                        ? selectedMA.name
-                        : 'Select Master Account',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: selectedMA != null
-                          ? AppColors.primary
-                          : Colors.grey,
-                    ),
-                  ),
-                  if (selectedMA?.accountNumber != null)
-                    Text(
-                      'A/C: ${selectedMA!.accountNumber}',
-                      style: const TextStyle(color: Colors.grey, fontSize: 11),
-                    ),
-                ],
-              ),
-            ),
-            if (selectedMA != null && selectedMA.isDefault)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'DEFAULT',
-                  style: TextStyle(
-                    color: Colors.amber,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.expand_more,
-              color: selectedMA != null ? AppColors.primary : Colors.grey,
-              size: 18,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _pickMA() {
-    final mas = maCtrl.masterAccounts;
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Select Master Account',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    setState(() => _selectedMAId = null);
-                    Get.back();
-                  },
-                  child: const Text(
-                    'None',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 16),
-            ...mas.map(
-              (ma) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
-                  child: Text(
-                    ma.name[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                title: Text(
-                  ma.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: ma.accountNumber != null
-                    ? Text(
-                        'A/C: ${ma.accountNumber}',
-                        style: const TextStyle(fontSize: 11),
-                      )
-                    : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (ma.isDefault)
-                      const Icon(
-                        Icons.star_rounded,
-                        color: Colors.amber,
-                        size: 18,
-                      ),
-                    if (_selectedMAId == ma.id)
-                      const Icon(
-                        Icons.check_circle,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                  ],
-                ),
-                onTap: () {
-                  setState(() => _selectedMAId = ma.id);
-                  Get.back();
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -1051,7 +858,7 @@ class _AddVoucherScreenState extends State<AddVoucherScreen> {
       date: _date,
       note: _noteCtrl.text.trim(),
       masterAccountId: _selectedMAId,
-      tagId: _selectedTagId,
+      // tagId: _selectedTagId,
     );
 
     final entries = _rows.map((row) {

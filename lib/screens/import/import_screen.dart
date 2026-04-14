@@ -169,16 +169,37 @@ class _ImportScreenState extends State<ImportScreen>
               const SizedBox(height: 10),
               GetBuilder<AppController>(
                 builder: (c) {
-                  if (_selectedBankAccountId != null &&
-                      !c.assetAccounts.any(
-                        (a) => a.id == _selectedBankAccountId,
-                      )) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() => _selectedBankAccountId = null);
-                      }
-                    });
-                  }
+                  // if (_selectedBankAccountId != null &&
+                  //     !c.assetAccounts.any(
+                  //       (a) => a.id == _selectedBankAccountId,
+                  //     )) {
+                  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+                  //     if (mounted) {
+                  //       setState(() => _selectedBankAccountId = null);
+                  //     }
+
+                  //     final validAccounts = c.assetAccounts
+                  //         .where((a) => a.type == 'bank')
+                  //         .toList();
+
+                  //     final selectedId =
+                  //         validAccounts.any(
+                  //           (a) => a.id == _selectedBankAccountId,
+                  //         )
+                  //         ? _selectedBankAccountId
+                  //         : null;
+                  //   });
+                  // }
+
+                  final bankAccounts = c.assetAccounts
+                      .where((a) => a.type == 'bank')
+                      .toList();
+
+                  // ✅ validate selected value
+                  final selectedId =
+                      bankAccounts.any((a) => a.id == _selectedBankAccountId)
+                      ? _selectedBankAccountId
+                      : null;
                   return Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFFF5F6FA),
@@ -191,7 +212,7 @@ class _ImportScreenState extends State<ImportScreen>
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
-                        value: _selectedBankAccountId,
+                        value: selectedId,
                         isExpanded: true,
                         borderRadius: BorderRadius.circular(12),
                         padding: const EdgeInsets.symmetric(
@@ -217,6 +238,7 @@ class _ImportScreenState extends State<ImportScreen>
                         ),
                         items: c.assetAccounts
                             .where((a) => a.type == 'bank')
+                            .toSet()
                             .map(
                               (a) => DropdownMenuItem<int>(
                                 value: a.id,
@@ -1065,8 +1087,13 @@ class _ImportScreenState extends State<ImportScreen>
   Future<Set<String>> _buildExistingTxKeys() async {
     try {
       final db = await DBHelper.instance.database;
+      final activeMaId = ctrl.activeMaId.value > 0
+          ? ctrl.activeMaId.value
+          : null;
+
       final result = await db.rawQuery(
-        'SELECT importHash FROM transactions WHERE importHash IS NOT NULL',
+        'SELECT importHash FROM transactions WHERE importHash IS NOT NULL AND masterAccountId = ?',
+        [activeMaId], // ✅ sirf is MA ki duplicates check karo
       );
       return result.map((r) => r['importHash'] as String).toSet();
     } catch (_) {
@@ -1317,10 +1344,13 @@ class _ImportScreenState extends State<ImportScreen>
                                           name: nameCtrl.text.trim(),
                                           type: newType,
                                           openingBalance: 0,
+                                          masterAccountId:
+                                              ctrl.activeMaId.value > 0
+                                              ? ctrl.activeMaId.value
+                                              : null,
                                         );
                                         await ctrl.addAccount(newAcc);
 
-                                        // Description se keywords save karo
                                         if (newAcc.id != null) {
                                           final kw = _keywordsFromRow(row);
                                           if (kw.isNotEmpty) {
@@ -1618,6 +1648,9 @@ class _ImportScreenState extends State<ImportScreen>
         final matchedTag = row.tag != null
             ? ctrl.tags.firstWhereOrNull((t) => t.name == row.tag)
             : null;
+        final activeMaId = ctrl.activeMaId.value > 0
+            ? ctrl.activeMaId.value
+            : null;
 
         vList.add(
           TxVoucher(
@@ -1626,6 +1659,7 @@ class _ImportScreenState extends State<ImportScreen>
             source: 'import',
             tagId: matchedTag?.id,
             importHash: row.txHash,
+            masterAccountId: activeMaId,
           ),
         );
 

@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:financeapp/controllers/m_account_ctr.dart';
+import 'package:financeapp/widgets/main_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -13,15 +14,18 @@ class AddEditMaScreen extends GetView<MaFormController> {
 
   // ── Static helper: open screen ───────────────────────────
   static void open({MasterAccount? ma}) {
-    Get.delete<MaFormController>(force: true);
-    Get.put(MaFormController(ma: ma));
-    Get.to(() => const AddEditMaScreen(), transition: Transition.rightToLeft);
+    Get.to(
+      () => const AddEditMaScreen(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => MaFormController(ma: ma));
+      }),
+      transition: Transition.rightToLeft,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final maCtrl = Get.find<MasterAccountController>();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -219,7 +223,15 @@ class AddEditMaScreen extends GetView<MaFormController> {
         ? await maCtrl.updateMasterAccount(m)
         : await maCtrl.addMasterAccount(m);
 
-    Get.back();
+    final masters = maCtrl.masterAccounts;
+
+    if (masters.length == 1) {
+      // only one → auto main screen
+      Get.offAll(() => const MainShell());
+    } else {
+      // more than one → just go back
+      Get.back();
+    }
     Get.snackbar(
       controller.isEdit ? 'Updated ✓' : 'Created ✓',
       '${m.name} ${controller.isEdit ? 'updated' : 'created'} successfully!',

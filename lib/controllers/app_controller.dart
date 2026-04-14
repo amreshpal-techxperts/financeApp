@@ -16,34 +16,36 @@ class AppController extends GetxController {
   final RxString searchQuery = ''.obs;
   final RxInt filterTagId = (-1).obs;
 
+  final RxInt activeMaId = (-1).obs;
+
   @override
   void onInit() {
     super.onInit();
-    loadAll();
+    // loadAll() will be called by MasterAccountController.initActiveMA() after login
   }
 
-  Future<void> loadAll() async {
+  Future<void> loadAll({int? maId}) async {
+    if (maId != null) activeMaId.value = maId;
+    final int? filterMa = activeMaId.value > 0 ? activeMaId.value : null;
+
     isLoading.value = true;
     try {
-      accounts.assignAll(await DBHelper.instance.getAllAccounts());
-
-      print("accounts = $accounts");
+      final rawAccounts = await DBHelper.instance.getAllAccounts(
+        masterAccountId: filterMa,
+      );
 
       final kwMap = await DBHelper.instance.getAllAccountKeywordsMap();
-      final accountsWithKw = accounts.map((a) {
+      final accountsWithKw = rawAccounts.map((a) {
         return a.copyWith(keywords: kwMap[a.id] ?? []);
       }).toList();
-
-      this.accounts.assignAll(accountsWithKw);
-
-      print("accountsWithKw = $accountsWithKw");
-
-      print("accountsWithKw = ${accountsWithKw.first.keywords}  ");
+      accounts.assignAll(accountsWithKw);
 
       tags.assignAll(await DBHelper.instance.getAllTags());
-      final v = await DBHelper.instance.getVouchers();
+      final v = await DBHelper.instance.getVouchers(masterAccountId: filterMa);
       vouchers.assignAll(v);
-      balances.assignAll(await DBHelper.instance.getAllBalances());
+      balances.assignAll(
+        await DBHelper.instance.getAllBalances(masterAccountId: filterMa),
+      );
       for (var voucher in v.take(50)) {
         entriesCache[voucher.id!] = await DBHelper.instance
             .getEntriesForVoucher(voucher.id!);
@@ -55,7 +57,10 @@ class AppController extends GetxController {
   }
 
   Future<void> refreshBalances() async {
-    balances.assignAll(await DBHelper.instance.getAllBalances());
+    final int? filterMa = activeMaId.value > 0 ? activeMaId.value : null;
+    balances.assignAll(
+      await DBHelper.instance.getAllBalances(masterAccountId: filterMa),
+    );
     update();
   }
 
@@ -174,10 +179,6 @@ class AppController extends GetxController {
       return false;
     }
     if (filterTagId.value > 0 && v.tagId != filterTagId.value) {
-      // ← simple!
-      return false;
-    }
-    if (filterMAId.value > 0 && v.masterAccountId != filterMAId.value) {
       return false;
     }
     return true;
