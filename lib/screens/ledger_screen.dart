@@ -22,6 +22,10 @@ class _LedgerScreenState extends State<LedgerScreen>
     with SingleTickerProviderStateMixin {
   final ctrl = Get.find<AppController>();
 
+  String _searchQuery = '';
+  bool _searchVisible = false;
+  final TextEditingController _searchCtrl = TextEditingController();
+
   // ── Paginated rows (sirf ye dikhte hain) ──────────────
   final List<Map<String, dynamic>> _rows = [];
 
@@ -29,6 +33,7 @@ class _LedgerScreenState extends State<LedgerScreen>
   bool _initialLoading = true;
   bool _pageLoading = false;
   bool _hasMore = true;
+  bool _searchLoading = false;
 
   // ── Pagination tracking ────────────────────────────────
   int _offset = 0;
@@ -60,6 +65,7 @@ class _LedgerScreenState extends State<LedgerScreen>
   void dispose() {
     _ac.dispose();
     _scrollCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -94,12 +100,27 @@ class _LedgerScreenState extends State<LedgerScreen>
     _ac.forward(from: 0);
   }
 
+  Future<void> _searchRefresh() async {
+    setState(() {
+      _searchLoading = true;
+      _rows.clear();
+      _offset = 0;
+      _runningBalance = widget.account.openingBalance;
+      _hasMore = true;
+    });
+    await Future.wait([_fetchTotals(), _fetchCount()]);
+    await _fetchPage(isFirst: true);
+    setState(() => _searchLoading = false);
+    _ac.forward(from: 0);
+  }
+
   // ── Totals (header stats) ─────────────────────────────
   Future<void> _fetchTotals() async {
     final t = await DBHelper.instance.getAccountLedgerTotals(
       widget.account.id!,
       fromDate: _fromDate,
       toDate: _toDate,
+      searchQuery: _searchQuery,
     );
     _totalDr = t['dr'] ?? 0;
     _totalCr = t['cr'] ?? 0;
@@ -111,6 +132,7 @@ class _LedgerScreenState extends State<LedgerScreen>
       widget.account.id!,
       fromDate: _fromDate,
       toDate: _toDate,
+      searchQuery: _searchQuery,
     );
   }
 
@@ -121,6 +143,7 @@ class _LedgerScreenState extends State<LedgerScreen>
       widget.account.keywords,
       limit: _kPageSize,
       offset: _offset,
+      searchQuery: _searchQuery,
     );
 
     if (rawRows.isEmpty) {
@@ -435,6 +458,18 @@ class _LedgerScreenState extends State<LedgerScreen>
             onBack: () => Get.back(),
             onRefresh: _init,
             onFilter: _openDateFilter,
+            onSearchToggle: () {
+              // ✅ NEW
+              setState(() {
+                _searchVisible = !_searchVisible;
+                if (!_searchVisible) {
+                  _searchCtrl.clear();
+                  _searchQuery = '';
+                  _init();
+                }
+              });
+            },
+            searchVisible: _searchVisible,
             onClearFilter: () {
               setState(() {
                 _fromDate = null;
@@ -443,6 +478,58 @@ class _LedgerScreenState extends State<LedgerScreen>
               _init();
             },
           ),
+
+          // ✅ Search Bar
+          if (_searchVisible)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search by note or account...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 13,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 18,
+                    color: Colors.grey.shade400,
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close, size: 16),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                            _searchRefresh(); // ✅
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 14,
+                  ),
+                  isDense: true,
+                ),
+                onChanged: (v) {
+                  setState(() => _searchQuery = v.trim());
+                  Future.delayed(const Duration(milliseconds: 400), () {
+                    if (_searchCtrl.text.trim() == _searchQuery) {
+                      _searchRefresh(); // ✅ _init() nahi, _searchRefresh()
+                    }
+                  });
+                },
+              ),
+            ),
 
           // Table labels
           const _TableHeader(),
@@ -458,50 +545,68 @@ class _LedgerScreenState extends State<LedgerScreen>
                   )
                 : _rows.isEmpty
                 ? const _EmptyState()
-                : ListView.builder(
-                    controller: _scrollCtrl,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 90),
-                    itemCount: _rows.length + (_hasMore ? 1 : 0),
-                    itemBuilder: (_, i) {
-                      // Bottom page loader
-                      if (i == _rows.length) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 20),
-                          child: Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF1A237E),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      return _LedgerRow(
-                        row: _rows[i],
-                        index: i,
-                        animCtrl: _ac,
-                        onTap: () async {
-                          final txId = _rows[i]['transactionId'] as int;
-                          final entries = await ctrl.getVoucherEntries(txId);
-                          final voucher = ctrl.vouchers.firstWhereOrNull(
-                            (v) => v.id == txId,
-                          );
-                          if (voucher != null) {
-                            await Get.to(
-                              () => AddVoucherScreen(
-                                existing: voucher,
-                                existingEntries: entries,
+                : Stack(
+                    children: [
+                      ListView.builder(
+                        controller: _scrollCtrl,
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.only(bottom: 90),
+                        itemCount: _rows.length + (_hasMore ? 1 : 0),
+                        itemBuilder: (_, i) {
+                          // Bottom page loader
+                          if (i == _rows.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF1A237E),
+                                  ),
+                                ),
                               ),
                             );
-                            _init();
                           }
+                          return _LedgerRow(
+                            row: _rows[i],
+                            index: i,
+                            animCtrl: _ac,
+                            onTap: () async {
+                              final txId = _rows[i]['transactionId'] as int;
+                              final entries = await ctrl.getVoucherEntries(
+                                txId,
+                              );
+                              final voucher = ctrl.vouchers.firstWhereOrNull(
+                                (v) => v.id == txId,
+                              );
+                              if (voucher != null) {
+                                await Get.to(
+                                  () => AddVoucherScreen(
+                                    existing: voucher,
+                                    existingEntries: entries,
+                                  ),
+                                );
+                                _init();
+                              }
+                            },
+                          );
                         },
-                      );
-                    },
+                      ),
+
+                      if (_searchLoading)
+                        const Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: LinearProgressIndicator(
+                            color: Color(0xFF1A237E),
+                            backgroundColor: Colors.transparent,
+                            minHeight: 2,
+                          ),
+                        ),
+                    ],
                   ),
           ),
         ],
@@ -538,6 +643,8 @@ class _Header extends StatelessWidget {
   final DateTime? fromDate, toDate;
   final int totalRows;
   final VoidCallback onBack, onRefresh, onFilter, onClearFilter;
+  final VoidCallback onSearchToggle;
+  final bool searchVisible;
 
   const _Header({
     required this.account,
@@ -552,6 +659,8 @@ class _Header extends StatelessWidget {
     required this.onRefresh,
     required this.onFilter,
     required this.onClearFilter,
+    required this.onSearchToggle,
+    required this.searchVisible,
   });
 
   @override
@@ -645,6 +754,16 @@ class _Header extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                    IconButton(
+                      icon: Icon(
+                        searchVisible ? Icons.search_off : Icons.search,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
+                      onPressed: onSearchToggle,
+                    ),
+
                     // Filter btn with active dot
                     // Stack(
                     //   alignment: Alignment.center,

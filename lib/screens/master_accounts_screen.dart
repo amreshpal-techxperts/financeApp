@@ -70,9 +70,7 @@ class MasterAccountsScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
-                    border: ma.isDefault
-                        ? Border.all(color: AppColors.primary, width: 2)
-                        : Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: Colors.grey.shade200),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.05),
@@ -99,35 +97,11 @@ class MasterAccountsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            ma.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        if (ma.isDefault)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'DEFAULT',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                      ],
+                    title: Text(
+                      ma.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
+
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -146,32 +120,14 @@ class MasterAccountsScreen extends StatelessWidget {
                           ),
                       ],
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // ── Star = set default ─────────────
-                        GestureDetector(
-                          onTap: () => ctrl.setDefault(ma.id!),
-                          child: Icon(
-                            ma.isDefault
-                                ? Icons.star_rounded
-                                : Icons.star_border_rounded,
-                            color: ma.isDefault ? Colors.amber : Colors.grey,
-                            size: 26,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        // ── Edit icon ─────────────────────
-                        IconButton(
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                            size: 20,
-                            color: Colors.grey,
-                          ),
-                          onPressed: () => AddEditMaScreen.open(ma: ma),
-                        ),
-                      ],
-                    ),
+                    // trailing: IconButton(
+                    //   icon: const Icon(
+                    //     Icons.edit_outlined,
+                    //     size: 20,
+                    //     color: Colors.grey,
+                    //   ),
+                    //   onPressed: () => AddEditMaScreen.open(ma: ma),
+                    // ),
                   ),
                 ),
               ),

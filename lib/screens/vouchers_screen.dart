@@ -126,7 +126,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                           color: AppColors.primary,
                           isActive: ctrl.filterMAId.value == ma.id,
                           avatar: ma.name[0].toUpperCase(),
-                          isDefault: ma.isDefault,
+
                           onTap: () {
                             ctrl.filterMAId.value =
                                 ctrl.filterMAId.value == ma.id ? -1 : ma.id!;

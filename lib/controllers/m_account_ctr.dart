@@ -20,7 +20,7 @@ class MaFormController extends GetxController {
     nameCtrl = TextEditingController(text: ma?.name ?? '');
     accNumCtrl = TextEditingController(text: ma?.accountNumber ?? '');
     bankCtrl = TextEditingController(text: ma?.bankName ?? '');
-    isDefault = (ma?.isDefault ?? false).obs;
+    // isDefault = (ma?.isDefault ?? false).obs;
   }
 
   @override

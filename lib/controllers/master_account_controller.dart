@@ -7,7 +7,7 @@ import '../models/import_setting.dart';
 
 class MasterAccountController extends GetxController {
   final RxList<MasterAccount> masterAccounts = <MasterAccount>[].obs;
-  final Rx<MasterAccount?> defaultMA = Rx<MasterAccount?>(null);
+  // final Rx<MasterAccount?> defaultMA = Rx<MasterAccount?>(null);
 
   /// ✅ Currently active/selected business (Khata Book style)
   final Rx<MasterAccount?> activeMA = Rx<MasterAccount?>(null);
@@ -25,7 +25,7 @@ class MasterAccountController extends GetxController {
   Future<void> load() async {
     final list = await DBHelper.instance.getMasterAccounts();
     masterAccounts.assignAll(list);
-    defaultMA.value = list.firstWhereOrNull((m) => m.isDefault);
+    // defaultMA.value = list.firstWhereOrNull((m) => m.isDefault);
 
     // Restore last active MA from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
@@ -36,7 +36,7 @@ class MasterAccountController extends GetxController {
       restored = list.firstWhereOrNull((m) => m.id == lastId);
     }
     // Fallback: default MA, then first in list
-    restored ??= list.firstWhereOrNull((m) => m.isDefault) ?? list.firstOrNull;
+    restored ?? list.firstOrNull;
 
     if (restored != null) {
       activeMA.value = restored;
@@ -64,18 +64,14 @@ class MasterAccountController extends GetxController {
 
   Future<MasterAccount> addMasterAccount(MasterAccount ma) async {
     ma.id = await DBHelper.instance.insertMasterAccount(ma);
-    if (ma.isDefault) {
-      for (var m in masterAccounts) {
-        if (m.id != ma.id) m.isDefault = false;
-      }
-      defaultMA.value = ma;
-    }
+    // if (ma.isDefault) {
+    //   for (var m in masterAccounts) {
+    //     if (m.id != ma.id) m.isDefault = false;
+    //   }
+    //   defaultMA.value = ma;
+    // }
     masterAccounts.add(ma);
-    masterAccounts.sort((a, b) {
-      if (a.isDefault) return -1;
-      if (b.isDefault) return 1;
-      return a.name.compareTo(b.name);
-    });
+    masterAccounts.sort((a, b) => a.name.compareTo(b.name));
     await createDefaultAccounts(ma.id!);
 
     // ✅ Auto-switch to the newly created business
@@ -119,28 +115,30 @@ class MasterAccountController extends GetxController {
     await DBHelper.instance.updateMasterAccount(ma);
     final i = masterAccounts.indexWhere((m) => m.id == ma.id);
     if (i != -1) masterAccounts[i] = ma;
-    if (ma.isDefault) {
-      for (var m in masterAccounts) {
-        if (m.id != ma.id) m.isDefault = false;
-      }
-      defaultMA.value = ma;
-    }
     update();
   }
 
-  Future<void> setDefault(int id) async {
-    await DBHelper.instance.setDefaultMA(id);
-    for (var m in masterAccounts) {
-      m.isDefault = m.id == id;
-    }
-    defaultMA.value = masterAccounts.firstWhereOrNull((m) => m.id == id);
-    update();
-  }
+  // Future<void> setDefault(int id) async {
+  //   await DBHelper.instance.setDefaultMA(id);
+  //   for (var m in masterAccounts) {
+  //     m.isDefault = m.id == id;
+  //   }
+  //   defaultMA.value = masterAccounts.firstWhereOrNull((m) => m.id == id);
+  //   update();
+  // }
 
   Future<void> deleteMasterAccount(int id) async {
     await DBHelper.instance.deleteMasterAccount(id);
     masterAccounts.removeWhere((m) => m.id == id);
-    if (defaultMA.value?.id == id) defaultMA.value = null;
+    // ✅ agar active delete hua to pehle wala select karo
+    if (activeMA.value?.id == id) {
+      activeMA.value = masterAccounts.firstOrNull;
+      if (activeMA.value != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(_prefKey, activeMA.value!.id!);
+        await appCtrl.loadAll(maId: activeMA.value!.id);
+      }
+    }
     update();
   }
 

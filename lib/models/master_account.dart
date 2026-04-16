@@ -3,7 +3,7 @@ class MasterAccount {
   String name;
   String? accountNumber;
   String? bankName;
-  bool isDefault;
+ 
   DateTime createdAt;
 
   MasterAccount({
@@ -11,7 +11,7 @@ class MasterAccount {
     required this.name,
     this.accountNumber,
     this.bankName,
-    this.isDefault = false,
+   
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -20,7 +20,7 @@ class MasterAccount {
     'name': name,
     'accountNumber': accountNumber,
     'bankName': bankName,
-    'isDefault': isDefault ? 1 : 0,
+   
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -29,7 +29,7 @@ class MasterAccount {
     name: m['name'],
     accountNumber: m['accountNumber'],
     bankName: m['bankName'],
-    isDefault: (m['isDefault'] ?? 0) == 1,
+  
     createdAt: DateTime.parse(m['createdAt']),
   );
 }

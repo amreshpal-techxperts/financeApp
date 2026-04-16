@@ -48,7 +48,7 @@ class _ImportScreenState extends State<ImportScreen>
       appBar: _buildAppBar(),
       body: Column(
         children: [
-          if (_rows.isEmpty && !_imported) _buildSetupCard(),
+          if (_rows.isEmpty && !_imported && !_loading) _buildSetupCard(),
           if (_loading) _buildLoadingState(),
           if (!_loading && _rows.isNotEmpty) ...[
             _buildStatsBar(),
@@ -60,7 +60,7 @@ class _ImportScreenState extends State<ImportScreen>
               ),
             ),
           ],
-          if (!_loading && _rows.isEmpty) _buildEmptyState(),
+          if (!_loading && _rows.isEmpty && _imported) _buildEmptyState(),
         ],
       ),
     );
@@ -1116,6 +1116,7 @@ class _ImportScreenState extends State<ImportScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (_) {
         String search = '';
         bool showCreate = false;
@@ -1138,445 +1139,465 @@ class _ImportScreenState extends State<ImportScreen>
               grouped.putIfAbsent(a.type, () => []).add(a);
             }
 
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.82,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom,
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(top: 8, bottom: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+            return DraggableScrollableSheet(
+              initialChildSize: 0.85,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (_, scrollController) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
                     ),
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Select Account',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                Text(
-                                  row.description,
-                                  style: const TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 11,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: () => ss(() => showCreate = !showCreate),
-                            icon: Icon(
-                              showCreate ? Icons.close : Icons.add,
-                              size: 16,
-                            ),
-                            label: Text(
-                              showCreate ? 'Cancel' : 'New',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(ctx).viewInsets.bottom,
                     ),
-
-                    // Search bar (when not creating)
-                    if (!showCreate)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: TextField(
-                          controller: searchCtrl,
-                          onChanged: (v) => ss(() => search = v),
-                          decoration: InputDecoration(
-                            hintText: 'Search accounts...',
-                            hintStyle: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 13,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search,
-                              size: 18,
-                              color: Colors.grey.shade400,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 10,
-                              horizontal: 14,
-                            ),
-                            isDense: true,
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(top: 8, bottom: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ),
-
-                    // Create new account panel
-                    if (showCreate) ...[
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            DropdownButtonFormField<String>(
-                              value: newType,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                labelText: 'Account Type',
-                                filled: true,
-                                fillColor: Colors.white,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade200,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade200,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                isDense: true,
-                              ),
-                              items: AppLabels.accountType.entries
-                                  .map(
-                                    (e) => DropdownMenuItem(
-                                      value: e.key,
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            AppIcons.forAccount(e.key),
-                                            size: 15,
-                                            color: AppIcons.colorFor(e.key),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Flexible(
-                                            child: Text(
-                                              e.value,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) => ss(() => newType = v!),
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              controller: nameCtrl,
-                              textCapitalization: TextCapitalization.words,
-                              onChanged: (v) => ss(() => newName = v),
-                              decoration: InputDecoration(
-                                labelText: 'Account Name',
-                                filled: true,
-                                fillColor: Colors.white,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade200,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade200,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                isDense: true,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: newName.trim().isEmpty
-                                    ? null
-                                    : () async {
-                                        final newAcc = Account(
-                                          name: nameCtrl.text.trim(),
-                                          type: newType,
-                                          openingBalance: 0,
-                                          masterAccountId:
-                                              ctrl.activeMaId.value > 0
-                                              ? ctrl.activeMaId.value
-                                              : null,
-                                        );
-                                        await ctrl.addAccount(newAcc);
-
-                                        if (newAcc.id != null) {
-                                          final kw = _keywordsFromRow(row);
-                                          if (kw.isNotEmpty) {
-                                            await DBHelper.instance
-                                                .updateAccountKeywords(
-                                                  newAcc.id!,
-                                                  kw,
-                                                );
-                                          }
-                                        }
-
-                                        setState(() {
-                                          _rows[rowIdx]
-                                            ..accountId = newAcc.id
-                                            ..accountName = newAcc.name
-                                            ..accountType = newAcc.type
-                                            ..isNewAccount = false;
-                                        });
-                                        Navigator.pop(context);
-                                        Get.snackbar(
-                                          'Created',
-                                          '"${newAcc.name}" selected.',
-                                          backgroundColor: AppColors.credit,
-                                          colorText: Colors.white,
-                                        );
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.check, size: 16),
-                                label: Text(
-                                  newName.trim().isEmpty
-                                      ? 'Enter name...'
-                                      : 'Create "${nameCtrl.text.trim()}"',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16, bottom: 6),
-                        child: Text(
-                          'Or select existing:',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    Divider(height: 1, color: Colors.grey.shade100),
-
-                    // Accounts list
-                    Expanded(
-                      child: filtered.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.search_off,
-                                    size: 40,
-                                    color: Colors.grey.shade300,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '"$search" not found',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade400,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  TextButton.icon(
-                                    onPressed: () => ss(() {
-                                      showCreate = true;
-                                      nameCtrl.text = search;
-                                      newName = search;
-                                    }),
-                                    icon: const Icon(Icons.add, size: 16),
-                                    label: Text('Create "$search"'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView(
-                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-                              children: grouped.entries.map((g) {
-                                final color = AppIcons.colorFor(g.key);
-                                return Column(
+                        // Header
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 4,
-                                        top: 8,
-                                        bottom: 6,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            AppIcons.forAccount(g.key),
-                                            size: 12,
-                                            color: color,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            AppLabels.accountType[g.key] ??
-                                                g.key,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              color: color,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
+                                    const Text(
+                                      'Select Account',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16,
                                       ),
                                     ),
-                                    ...g.value.map((a) {
-                                      final isSelected =
-                                          _rows[rowIdx].accountId == a.id;
-                                      return Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? color.withOpacity(0.07)
-                                              : Colors.grey.shade50,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? color.withOpacity(0.3)
-                                                : Colors.grey.shade100,
-                                          ),
-                                        ),
-                                        child: ListTile(
-                                          dense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 2,
-                                              ),
-                                          leading: CircleAvatar(
-                                            radius: 16,
-                                            backgroundColor: color.withOpacity(
-                                              0.12,
-                                            ),
-                                            child: Icon(
-                                              AppIcons.forAccount(a.type),
-                                              size: 14,
-                                              color: color,
-                                            ),
-                                          ),
-                                          title: Text(
-                                            a.name,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13,
-                                              color: isSelected
-                                                  ? color
-                                                  : Colors.black87,
-                                            ),
-                                          ),
-                                          subtitle: Text(
-                                            fmtAmt(ctrl.balances[a.id] ?? 0),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                          trailing: isSelected
-                                              ? Icon(
-                                                  Icons.check_circle_rounded,
-                                                  color: color,
-                                                  size: 20,
-                                                )
-                                              : null,
-                                          onTap: () async {
-                                            setState(() {
-                                              _rows[rowIdx]
-                                                ..accountId = a.id
-                                                ..accountName = a.name
-                                                ..accountType = a.type
-                                                ..isNewAccount = false;
-                                            });
-                                            Navigator.pop(context);
+                                    Text(
+                                      row.description,
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 11,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () =>
+                                    ss(() => showCreate = !showCreate),
+                                icon: Icon(
+                                  showCreate ? Icons.close : Icons.add,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  showCreate ? 'Cancel' : 'New',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
-                                            // Manual assign → keywords save karo
-                                            if (a.id != null) {
+                        // Search bar (when not creating)
+                        if (!showCreate)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: TextField(
+                              controller: searchCtrl,
+                              onChanged: (v) => ss(() => search = v),
+                              decoration: InputDecoration(
+                                hintText: 'Search accounts...',
+                                hintStyle: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 13,
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.search,
+                                  size: 18,
+                                  color: Colors.grey.shade400,
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                  horizontal: 14,
+                                ),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+
+                        // Create new account panel
+                        if (showCreate) ...[
+                          Container(
+                            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.04),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                DropdownButtonFormField<String>(
+                                  value: newType,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Account Type',
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                  items: AppLabels.accountType.entries
+                                      .map(
+                                        (e) => DropdownMenuItem(
+                                          value: e.key,
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                AppIcons.forAccount(e.key),
+                                                size: 15,
+                                                color: AppIcons.colorFor(e.key),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(
+                                                  e.value,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (v) => ss(() => newType = v!),
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: nameCtrl,
+                                  textCapitalization: TextCapitalization.words,
+                                  onChanged: (v) => ss(() => newName = v),
+                                  decoration: InputDecoration(
+                                    labelText: 'Account Name',
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: newName.trim().isEmpty
+                                        ? null
+                                        : () async {
+                                            final newAcc = Account(
+                                              name: nameCtrl.text.trim(),
+                                              type: newType,
+                                              openingBalance: 0,
+                                              masterAccountId:
+                                                  ctrl.activeMaId.value > 0
+                                                  ? ctrl.activeMaId.value
+                                                  : null,
+                                            );
+                                            await ctrl.addAccount(newAcc);
+
+                                            if (newAcc.id != null) {
                                               final kw = _keywordsFromRow(row);
                                               if (kw.isNotEmpty) {
                                                 await DBHelper.instance
                                                     .updateAccountKeywords(
-                                                      a.id!,
+                                                      newAcc.id!,
                                                       kw,
                                                     );
-                                                await ctrl.loadAll();
                                               }
                                             }
+
+                                            setState(() {
+                                              _rows[rowIdx]
+                                                ..accountId = newAcc.id
+                                                ..accountName = newAcc.name
+                                                ..accountType = newAcc.type
+                                                ..isNewAccount = false;
+                                            });
+                                            Navigator.pop(context);
+                                            Get.snackbar(
+                                              'Created',
+                                              '"${newAcc.name}" selected.',
+                                              backgroundColor: AppColors.credit,
+                                              colorText: Colors.white,
+                                            );
                                           },
-                                        ),
-                                      );
-                                    }),
-                                  ],
-                                );
-                              }).toList(),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.check, size: 16),
+                                    label: Text(
+                                      newName.trim().isEmpty
+                                          ? 'Enter name...'
+                                          : 'Create "${nameCtrl.text.trim()}"',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 16, bottom: 6),
+                            child: Text(
+                              'Or select existing:',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        Divider(height: 1, color: Colors.grey.shade100),
+
+                        // Accounts list
+                        Expanded(
+                          child: filtered.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.search_off,
+                                        size: 40,
+                                        color: Colors.grey.shade300,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '"$search" not found',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade400,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      TextButton.icon(
+                                        onPressed: () => ss(() {
+                                          showCreate = true;
+                                          nameCtrl.text = search;
+                                          newName = search;
+                                        }),
+                                        icon: const Icon(Icons.add, size: 16),
+                                        label: Text('Create "$search"'),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : ListView(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    8,
+                                    12,
+                                    24,
+                                  ),
+                                  children: grouped.entries.map((g) {
+                                    final color = AppIcons.colorFor(g.key);
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 4,
+                                            top: 8,
+                                            bottom: 6,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                AppIcons.forAccount(g.key),
+                                                size: 12,
+                                                color: color,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                AppLabels.accountType[g.key] ??
+                                                    g.key,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: color,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        ...g.value.map((a) {
+                                          final isSelected =
+                                              _rows[rowIdx].accountId == a.id;
+                                          return Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? color.withOpacity(0.07)
+                                                  : Colors.grey.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: isSelected
+                                                    ? color.withOpacity(0.3)
+                                                    : Colors.grey.shade100,
+                                              ),
+                                            ),
+                                            child: ListTile(
+                                              dense: true,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 2,
+                                                  ),
+                                              leading: CircleAvatar(
+                                                radius: 16,
+                                                backgroundColor: color
+                                                    .withOpacity(0.12),
+                                                child: Icon(
+                                                  AppIcons.forAccount(a.type),
+                                                  size: 14,
+                                                  color: color,
+                                                ),
+                                              ),
+                                              title: Text(
+                                                a.name,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                  color: isSelected
+                                                      ? color
+                                                      : Colors.black87,
+                                                ),
+                                              ),
+                                              subtitle: Text(
+                                                fmtAmt(
+                                                  ctrl.balances[a.id] ?? 0,
+                                                ),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade500,
+                                                ),
+                                              ),
+                                              trailing: isSelected
+                                                  ? Icon(
+                                                      Icons
+                                                          .check_circle_rounded,
+                                                      color: color,
+                                                      size: 20,
+                                                    )
+                                                  : null,
+                                              onTap: () async {
+                                                setState(() {
+                                                  _rows[rowIdx]
+                                                    ..accountId = a.id
+                                                    ..accountName = a.name
+                                                    ..accountType = a.type
+                                                    ..isNewAccount = false;
+                                                });
+                                                Navigator.pop(context);
+
+                                                // Manual assign → keywords save karo
+                                                if (a.id != null) {
+                                                  final kw = _keywordsFromRow(
+                                                    row,
+                                                  );
+                                                  if (kw.isNotEmpty) {
+                                                    await DBHelper.instance
+                                                        .updateAccountKeywords(
+                                                          a.id!,
+                                                          kw,
+                                                        );
+                                                    await ctrl.loadAll();
+                                                  }
+                                                }
+                                              },
+                                            ),
+                                          );
+                                        }),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         );
@@ -1640,7 +1661,7 @@ class _ImportScreenState extends State<ImportScreen>
       for (final row in valid) {
         DateTime date;
         try {
-          date = DateTime.parse(row.date);
+          date = DateTime.parse(normalizeDate(row.date));
         } catch (_) {
           date = DateTime.now();
         }

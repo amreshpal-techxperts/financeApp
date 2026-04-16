@@ -76,66 +76,66 @@ class AddEditMaScreen extends GetView<MaFormController> {
             const SizedBox(height: 24),
 
             // ── Default toggle ─────────────────────────
-            Obx(
-              () => GestureDetector(
-                onTap: () => controller.isDefault.toggle(),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: controller.isDefault.value
-                        ? AppColors.primary.withOpacity(0.08)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: controller.isDefault.value
-                          ? AppColors.primary.withOpacity(0.5)
-                          : Colors.grey.shade200,
-                      width: controller.isDefault.value ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        controller.isDefault.value
-                            ? Icons.star_rounded
-                            : Icons.star_border_rounded,
-                        color: controller.isDefault.value
-                            ? Colors.amber
-                            : Colors.grey,
-                        size: 26,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Set as Default',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              'Active context for new vouchers',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Obx(
-                        () => Switch(
-                          value: controller.isDefault.value,
-                          onChanged: (v) => controller.isDefault.value = v,
-                          activeColor: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            // Obx(
+            //   () => GestureDetector(
+            //     onTap: () => controller.isDefault.toggle(),
+            //     child: AnimatedContainer(
+            //       duration: const Duration(milliseconds: 180),
+            //       padding: const EdgeInsets.all(14),
+            //       decoration: BoxDecoration(
+            //         color: controller.isDefault.value
+            //             ? AppColors.primary.withOpacity(0.08)
+            //             : Colors.white,
+            //         borderRadius: BorderRadius.circular(14),
+            //         border: Border.all(
+            //           color: controller.isDefault.value
+            //               ? AppColors.primary.withOpacity(0.5)
+            //               : Colors.grey.shade200,
+            //           width: controller.isDefault.value ? 1.5 : 1,
+            //         ),
+            //       ),
+            //       child: Row(
+            //         children: [
+            //           Icon(
+            //             controller.isDefault.value
+            //                 ? Icons.star_rounded
+            //                 : Icons.star_border_rounded,
+            //             color: controller.isDefault.value
+            //                 ? Colors.amber
+            //                 : Colors.grey,
+            //             size: 26,
+            //           ),
+            //           const SizedBox(width: 12),
+            //           const Expanded(
+            //             child: Column(
+            //               crossAxisAlignment: CrossAxisAlignment.start,
+            //               children: [
+            //                 Text(
+            //                   'Set as Default',
+            //                   style: TextStyle(fontWeight: FontWeight.w600),
+            //                 ),
+            //                 Text(
+            //                   'Active context for new vouchers',
+            //                   style: TextStyle(
+            //                     color: Colors.grey,
+            //                     fontSize: 12,
+            //                   ),
+            //                 ),
+            //               ],
+            //             ),
+            //           ),
+            //           Obx(
+            //             () => Switch(
+            //               value: controller.isDefault.value,
+            //               onChanged: (v) => controller.isDefault.value = v,
+            //               activeColor: AppColors.primary,
+            //             ),
+            //           ),
+            //         ],
+            //       ),
+            //     ),
+            //   ),
+            // ),
             const SizedBox(height: 30),
 
             // ── Save button ────────────────────────────
@@ -217,7 +217,7 @@ class AddEditMaScreen extends GetView<MaFormController> {
       bankName: controller.bankCtrl.text.trim().isEmpty
           ? null
           : controller.bankCtrl.text.trim(),
-      isDefault: controller.isDefault.value,
+     // isDefault: controller.isDefault.value,
     );
     controller.isEdit
         ? await maCtrl.updateMasterAccount(m)

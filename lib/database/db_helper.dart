@@ -78,7 +78,7 @@ class DBHelper {
       name TEXT NOT NULL,
       accountNumber TEXT,
       bankName TEXT,
-      isDefault INTEGER DEFAULT 0,
+   
       createdAt TEXT NOT NULL)''');
 
     await db.execute('''
@@ -418,37 +418,26 @@ class DBHelper {
   // ── MASTER ACCOUNTS ─────────────────────────────
   Future<int> insertMasterAccount(MasterAccount ma) async {
     final db = await database;
-    if (ma.isDefault) await db.update('master_accounts', {'isDefault': 0});
+    // if (ma.isDefault) await db.update('master_accounts', {'isDefault': 0});
     return db.insert('master_accounts', ma.toMap()..remove('id'));
   }
 
   Future<List<MasterAccount>> getMasterAccounts() async {
     final r = await (await database).query(
       'master_accounts',
-      orderBy: 'isDefault DESC, name ASC',
+      orderBy: 'name ASC',
     );
     return r.map(MasterAccount.fromMap).toList();
   }
 
   Future<void> updateMasterAccount(MasterAccount ma) async {
     final db = await database;
-    if (ma.isDefault) await db.update('master_accounts', {'isDefault': 0});
+    // if (ma.isDefault) await db.update('master_accounts', {'isDefault': 0});
     await db.update(
       'master_accounts',
       ma.toMap(),
       where: 'id=?',
       whereArgs: [ma.id],
-    );
-  }
-
-  Future<void> setDefaultMA(int id) async {
-    final db = await database;
-    await db.update('master_accounts', {'isDefault': 0});
-    await db.update(
-      'master_accounts',
-      {'isDefault': 1},
-      where: 'id=?',
-      whereArgs: [id],
     );
   }
 
@@ -488,6 +477,7 @@ class DBHelper {
     int accountId, {
     DateTime? fromDate,
     DateTime? toDate,
+    String searchQuery = '', // ✅ ADD
   }) async {
     final db = await database;
 
@@ -501,6 +491,10 @@ class DBHelper {
     if (toDate != null) {
       where += ' AND t.date <= ?';
       args.add(toDate.toIso8601String().substring(0, 10));
+    }
+    if (searchQuery.isNotEmpty) {
+      where += ' AND LOWER(t.note) LIKE ?'; // ✅ ADD
+      args.add('%${searchQuery.toLowerCase()}%');
     }
 
     final result = await db.rawQuery('''
@@ -605,6 +599,7 @@ class DBHelper {
     int accountId, {
     DateTime? fromDate,
     DateTime? toDate,
+    String searchQuery = '', // ✅ ADD
   }) async {
     final db = await database;
 
@@ -618,6 +613,10 @@ class DBHelper {
     if (toDate != null) {
       where += ' AND t.date <= ?';
       args.add(toDate.toIso8601String().substring(0, 10));
+    }
+    if (searchQuery.isNotEmpty) {
+      where += ' AND LOWER(t.note) LIKE ?'; // ✅ ADD
+      args.add('%${searchQuery.toLowerCase()}%');
     }
 
     final rows = await db.rawQuery('''
@@ -845,18 +844,23 @@ class DBHelper {
         where: 'accountId = ? AND keyword = ?',
         whereArgs: [accountId, keyword.toLowerCase().trim()],
       );
-
   Future<List<Map<String, dynamic>>> getAccountLedgerWithKeyword(
     int accountId,
     List<String> keywords, {
     int limit = 20,
     int offset = 0,
+    String searchQuery = '',
   }) async {
     final db = await database;
 
     final keywordConditions = keywords
         .map((k) => "LOWER(t.note) LIKE '%${k.toLowerCase()}%'")
         .join(" OR ");
+
+    // ✅ Search condition add karo
+    final searchCond = searchQuery.isNotEmpty
+        ? "AND LOWER(t.note) LIKE '%${searchQuery.toLowerCase()}%'"
+        : '';
 
     final result = await db.rawQuery(
       '''
@@ -867,9 +871,10 @@ class DBHelper {
       e.accountId = ?
       ${keywords.isNotEmpty ? "OR ($keywordConditions)" : ""}
     )
+    $searchCond
     ORDER BY t.date DESC
     LIMIT $limit OFFSET $offset
-  ''',
+    ''',
       [accountId],
     );
 
