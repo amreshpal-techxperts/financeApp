@@ -16,7 +16,6 @@ import '../database/db_helper.dart';
 class AddEditAccountScreen extends GetView<AccountFormController> {
   const AddEditAccountScreen({super.key});
 
-  /// Open this screen with optional existing [account] and [selectedType].
   static void open({Account? account, String selectedType = 'all'}) {
     Get.delete<AccountFormController>(force: true);
     Get.put(
@@ -50,6 +49,8 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
             _buildNameField(),
             const SizedBox(height: 14),
             _buildBalanceField(),
+            // ✅ Bank type ke liye account number field
+            _buildAccountNumberField(),
             _buildPhoneField(),
             const SizedBox(height: 24),
             _KeywordsSection(controller: controller),
@@ -120,6 +121,30 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
     decoration: _inputDec('Opening Balance', Icons.account_balance_outlined),
   );
 
+  // ✅ NEW — Bank account number field
+  Widget _buildAccountNumberField() => Obx(
+    () => controller.type.value == 'bank'
+        ? Column(
+            children: [
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller.accountNumberCtrl,
+                keyboardType: TextInputType.number,
+                decoration:
+                    _inputDec(
+                      'Account Number (optional)',
+                      Icons.credit_card_outlined,
+                    ).copyWith(
+                      helperText:
+                          'CSV import mein auto-detect ke liye use hoga',
+                      helperStyle: const TextStyle(fontSize: 11),
+                    ),
+              ),
+            ],
+          )
+        : const SizedBox.shrink(),
+  );
+
   Widget _buildPhoneField() => Obx(
     () =>
         (controller.type.value == 'person' || controller.type.value == 'vendor')
@@ -185,9 +210,15 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
       return;
     }
 
-    // ✅ Auto-link to active business (Khata Book style — no user selection needed)
     final maCtrl = Get.find<MasterAccountController>();
     final activeMaId = maCtrl.activeMA.value?.id;
+
+    // ✅ accountNumber save karo (sirf bank ke liye)
+    final accNo =
+        controller.type.value == 'bank' &&
+            controller.accountNumberCtrl.text.trim().isNotEmpty
+        ? controller.accountNumberCtrl.text.trim()
+        : null;
 
     final a = Account(
       id: controller.account?.id,
@@ -197,6 +228,7 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
       phone: controller.phoneCtrl.text.trim().isEmpty
           ? null
           : controller.phoneCtrl.text.trim(),
+      accountNumber: accNo,
       masterAccountId: activeMaId,
       keywords: controller.account?.keywords ?? [],
     );
@@ -281,7 +313,27 @@ class AddEditAccountScreen extends GetView<AccountFormController> {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Keywords Section
+// AccountFormController — accountNumberCtrl add karna hai
+// (controller file mein yeh change karo)
+// ═══════════════════════════════════════════════════════════════════
+//
+// class AccountFormController extends GetxController {
+//   final TextEditingController accountNumberCtrl = TextEditingController();
+//
+//   AccountFormController({Account? account, ...}) {
+//     // ... existing init ...
+//     accountNumberCtrl.text = account?.accountNumber ?? '';  // ✅ ADD
+//   }
+//
+//   @override
+//   void onClose() {
+//     accountNumberCtrl.dispose(); // ✅ ADD
+//     super.onClose();
+//   }
+// }
+
+// ═══════════════════════════════════════════════════════════════════
+// Keywords Section (same as before — no change needed)
 // ═══════════════════════════════════════════════════════════════════
 
 class _KeywordsSection extends StatefulWidget {
@@ -309,22 +361,16 @@ class _KeywordsSectionState extends State<_KeywordsSection> {
     super.dispose();
   }
 
-  // ── DB Sync ───────────────────────────────────────────────
-
   Future<void> _persistKeywords() async {
     final id = widget.controller.account?.id;
     if (id == null) return;
-    // ✅ Naya method
     await DBHelper.instance.setAccountKeywords(id, _keywords);
     await Get.find<AppController>().loadAll();
   }
 
-  // ── Keyword Actions ───────────────────────────────────────
-
   void _addKeyword() {
     final kw = _addCtrl.text.trim().toLowerCase();
     if (kw.length < 2) return;
-
     if (_keywords.any((k) => k.toLowerCase() == kw)) {
       Get.snackbar(
         'Already exists',
@@ -335,7 +381,6 @@ class _KeywordsSectionState extends State<_KeywordsSection> {
       );
       return;
     }
-
     setState(() {
       _keywords.add(kw);
       _addCtrl.clear();
@@ -380,8 +425,6 @@ class _KeywordsSectionState extends State<_KeywordsSection> {
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -389,7 +432,6 @@ class _KeywordsSectionState extends State<_KeywordsSection> {
       children: [
         _buildHeader(),
         const SizedBox(height: 8),
-        // _buildInfoBanner(),
         const SizedBox(height: 10),
         _buildChipsContainer(),
       ],
@@ -436,31 +478,6 @@ class _KeywordsSectionState extends State<_KeywordsSection> {
         ),
     ],
   );
-
-  // Widget _buildInfoBanner() => Container(
-  //   padding: const EdgeInsets.all(12),
-  //   decoration: BoxDecoration(
-  //     color: AppColors.primary.withOpacity(0.04),
-  //     borderRadius: BorderRadius.circular(10),
-  //     border: Border.all(color: AppColors.primary.withOpacity(0.12)),
-  //   ),
-  //   child: Row(
-  //     children: [
-  //       Icon(
-  //         Icons.auto_awesome_outlined,
-  //         size: 14,
-  //         color: AppColors.primary.withOpacity(0.7),
-  //       ),
-  //       const SizedBox(width: 8),
-  //       const Expanded(
-  //         child: Text(
-  //           'Whenever these keywords are found in a transaction description, it will automatically be assigned to this account.',
-  //           style: TextStyle(fontSize: 11, color: Colors.black54),
-  //         ),
-  //       ),
-  //     ],
-  //   ),
-  // );
 
   Widget _buildChipsContainer() => Container(
     width: double.infinity,
@@ -655,5 +672,3 @@ class _KeywordChip extends StatelessWidget {
     );
   }
 }
-
-// ═══════════════════════════════════════════════════════════════════

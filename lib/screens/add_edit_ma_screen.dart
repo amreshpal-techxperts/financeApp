@@ -55,24 +55,24 @@ class AddEditMaScreen extends GetView<MaFormController> {
             const SizedBox(height: 16),
 
             // ── Account number ─────────────────────────
-            _label('Account Number (optional)'),
-            const SizedBox(height: 8),
-            _field(
-              controller.accNumCtrl,
-              'e.g. 123456789',
-              Icons.credit_card_outlined,
-              kb: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
+            // _label('Account Number (optional)'),
+            // const SizedBox(height: 8),
+            // _field(
+            //   controller.accNumCtrl,
+            //   'e.g. 123456789',
+            //   Icons.credit_card_outlined,
+            //   kb: TextInputType.number,
+            // ),
+            // const SizedBox(height: 16),
 
-            // ── Bank name ─────────────────────────────
-            _label('Bank Name (optional)'),
-            const SizedBox(height: 8),
-            _field(
-              controller.bankCtrl,
-              'e.g. SBI, HDFC',
-              Icons.account_balance_outlined,
-            ),
+            // // ── Bank name ─────────────────────────────
+            // _label('Bank Name (optional)'),
+            // const SizedBox(height: 8),
+            // _field(
+            //   controller.bankCtrl,
+            //   'e.g. SBI, HDFC',
+            //   Icons.account_balance_outlined,
+            // ),
             const SizedBox(height: 24),
 
             // ── Default toggle ─────────────────────────
@@ -217,7 +217,7 @@ class AddEditMaScreen extends GetView<MaFormController> {
       bankName: controller.bankCtrl.text.trim().isEmpty
           ? null
           : controller.bankCtrl.text.trim(),
-     // isDefault: controller.isDefault.value,
+      // isDefault: controller.isDefault.value,
     );
     controller.isEdit
         ? await maCtrl.updateMasterAccount(m)

@@ -33,6 +33,7 @@ class DBHelper {
       openingBalance REAL DEFAULT 0,
       masterAccountId INTEGER,
       phone TEXT, 
+      accountNumber TEXT,
       createdAt TEXT NOT NULL,
       FOREIGN KEY (masterAccountId) REFERENCES master_accounts(id) ON DELETE SET NULL
       
@@ -675,6 +676,48 @@ class DBHelper {
         // ignore error
       }
     }
+  }
+
+  Future<Account?> findBankByAccountNumber(
+    String accountNumber, {
+    int? masterAccountId,
+  }) async {
+    final db = await database;
+    final digits = accountNumber.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 4) return null;
+
+    // Last 6 digits se match karo
+    final last6 = digits.length >= 6
+        ? digits.substring(digits.length - 6)
+        : digits;
+
+    String where = "type = 'bank' AND accountNumber IS NOT NULL";
+    final args = <dynamic>[];
+
+    if (masterAccountId != null) {
+      where += ' AND masterAccountId = ?';
+      args.add(masterAccountId);
+    }
+
+    final rows = await db.query(
+      'accounts',
+      where: where,
+      whereArgs: args.isEmpty ? null : args,
+    );
+    for (final r in rows) {
+      final acc = Account.fromMap(r);
+      if (acc.matchesAccountNumber(digits)) return acc;
+      // Last 6 partial match
+      final storedDigits = (acc.accountNumber ?? '').replaceAll(
+        RegExp(r'\D'),
+        '',
+      );
+      if (storedDigits.length >= 6) {
+        final storedLast6 = storedDigits.substring(storedDigits.length - 6);
+        if (storedLast6 == last6) return acc;
+      }
+    }
+    return null;
   }
 
   Future<void> bulkUpdateKeywords(Map<int, List<String>> keywordsToAdd) async {

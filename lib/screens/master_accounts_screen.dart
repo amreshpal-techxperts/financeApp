@@ -102,24 +102,24 @@ class MasterAccountsScreen extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
 
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (ma.accountNumber != null)
-                          Text(
-                            'A/C: ${ma.accountNumber}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        if (ma.bankName != null)
-                          Text(
-                            ma.bankName!,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 11,
-                            ),
-                          ),
-                      ],
-                    ),
+                    // subtitle: Column(
+                    //   crossAxisAlignment: CrossAxisAlignment.start,
+                    //   children: [
+                    //     if (ma.accountNumber != null)
+                    //       Text(
+                    //         'A/C: ${ma.accountNumber}',
+                    //         style: const TextStyle(fontSize: 12),
+                    //       ),
+                    //     if (ma.bankName != null)
+                    //       Text(
+                    //         ma.bankName!,
+                    //         style: const TextStyle(
+                    //           color: Colors.grey,
+                    //           fontSize: 11,
+                    //         ),
+                    //       ),
+                    //   ],
+                    // ),
                     // trailing: IconButton(
                     //   icon: const Icon(
                     //     Icons.edit_outlined,

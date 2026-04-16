@@ -1,9 +1,9 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field
 
 import 'package:financeapp/controllers/app_controller.dart';
 import 'package:financeapp/database/db_helper.dart';
 import 'package:financeapp/models/account.dart';
-import 'package:financeapp/screens/import/import_helpers.dart';
+
 import 'package:financeapp/screens/import/import_models.dart';
 import 'package:financeapp/screens/import/import_parser.dart';
 import 'package:financeapp/utils/constants.dart';
@@ -33,10 +33,13 @@ class _ImportScreenState extends State<ImportScreen>
   String _loadingMsg = 'Parsing CSV...';
   int? _selectedBankAccountId;
 
+  // ✅ Auto-detected bank info
+  String? _detectedAccountNumber;
+  String? _detectedAccountName;
+  Account? _confirmedBankAccount; // confirmation ke baad set hoga
+
   int get _activeRows => _rows.where((r) => !r.skip).length;
   int get _dupRows => _rows.where((r) => r.isDuplicate).length;
-
-  // Unassigned = keyword match nahi hua, user manually select karega
   int get _unsetRows =>
       _rows.where((r) => !r.skip && r.accountName == null).length;
 
@@ -87,7 +90,6 @@ class _ImportScreenState extends State<ImportScreen>
       ],
     ),
     actions: [
-      // "Review New Accounts" button removed — no auto-creation in new system
       if (_rows.isNotEmpty)
         IconButton(
           icon: const Icon(Icons.delete_sweep_outlined),
@@ -97,7 +99,7 @@ class _ImportScreenState extends State<ImportScreen>
     ],
   );
 
-  // ── Setup Card ─────────────────────────────────────────
+  // ── Setup Card — simplified, no manual bank selection ──
   Widget _buildSetupCard() => Container(
     margin: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -113,6 +115,7 @@ class _ImportScreenState extends State<ImportScreen>
     ),
     child: Column(
       children: [
+        // ── Header ─────────────────────────────────────
         Container(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
           decoration: BoxDecoration(
@@ -152,7 +155,7 @@ class _ImportScreenState extends State<ImportScreen>
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Date, Description, Debit, Credit format',
+                      'Upload CSV — bank will be auto-detected',
                       style: TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                   ],
@@ -161,175 +164,52 @@ class _ImportScreenState extends State<ImportScreen>
             ],
           ),
         ),
+
+        // ── How it works ───────────────────────────────
         Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              StepLabel(step: '1', label: 'Select Bank Account'),
-              const SizedBox(height: 10),
-              GetBuilder<AppController>(
-                builder: (c) {
-                  // if (_selectedBankAccountId != null &&
-                  //     !c.assetAccounts.any(
-                  //       (a) => a.id == _selectedBankAccountId,
-                  //     )) {
-                  //   WidgetsBinding.instance.addPostFrameCallback((_) {
-                  //     if (mounted) {
-                  //       setState(() => _selectedBankAccountId = null);
-                  //     }
-
-                  //     final validAccounts = c.assetAccounts
-                  //         .where((a) => a.type == 'bank')
-                  //         .toList();
-
-                  //     final selectedId =
-                  //         validAccounts.any(
-                  //           (a) => a.id == _selectedBankAccountId,
-                  //         )
-                  //         ? _selectedBankAccountId
-                  //         : null;
-                  //   });
-                  // }
-
-                  final bankAccounts = c.assetAccounts
-                      .where((a) => a.type == 'bank')
-                      .toList();
-
-                  // ✅ validate selected value
-                  final selectedId =
-                      bankAccounts.any((a) => a.id == _selectedBankAccountId)
-                      ? _selectedBankAccountId
-                      : null;
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F6FA),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _selectedBankAccountId != null
-                            ? AppColors.primary.withOpacity(0.4)
-                            : Colors.grey.shade200,
-                      ),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: selectedId,
-                        isExpanded: true,
-                        borderRadius: BorderRadius.circular(12),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 4,
-                        ),
-                        hint: Row(
-                          children: [
-                            Icon(
-                              Icons.account_balance_outlined,
-                              size: 18,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Select bank account',
-                              style: TextStyle(
-                                color: Colors.grey.shade400,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                        items: c.assetAccounts
-                            .where((a) => a.type == 'bank')
-                            .toSet()
-                            .map(
-                              (a) => DropdownMenuItem<int>(
-                                value: a.id,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: AppIcons.colorFor(
-                                          a.type,
-                                        ).withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Icon(
-                                        AppIcons.forAccount(a.type),
-                                        size: 14,
-                                        color: AppIcons.colorFor(a.type),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Flexible(
-                                      child: Text(
-                                        a.name,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() => _selectedBankAccountId = v),
-                      ),
-                    ),
-                  );
-                },
-              ),
+              _buildHowItWorks(),
               const SizedBox(height: 20),
-              StepLabel(step: '2', label: 'Upload CSV File'),
-              const SizedBox(height: 10),
+
+              // ── Upload Button ──────────────────────────
               GestureDetector(
-                onTap: _selectedBankAccountId == null ? null : _pickFile,
+                onTap: _pickFile,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   height: 54,
                   decoration: BoxDecoration(
-                    gradient: _selectedBankAccountId != null
-                        ? LinearGradient(
-                            colors: [
-                              AppColors.primary,
-                              AppColors.primary.withOpacity(0.8),
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          )
-                        : LinearGradient(
-                            colors: [
-                              Colors.grey.shade200,
-                              Colors.grey.shade200,
-                            ],
-                          ),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primary,
+                        AppColors.primary.withOpacity(0.8),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
                     borderRadius: BorderRadius.circular(14),
-                    boxShadow: _selectedBankAccountId != null
-                        ? [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : [],
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.upload_file_rounded,
-                        color: _selectedBankAccountId != null
-                            ? Colors.white
-                            : Colors.grey,
+                        color: Colors.white,
                         size: 20,
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Text(
                         'Choose CSV File',
                         style: TextStyle(
-                          color: _selectedBankAccountId != null
-                              ? Colors.white
-                              : Colors.grey,
+                          color: Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                         ),
@@ -345,11 +225,134 @@ class _ImportScreenState extends State<ImportScreen>
     ),
   );
 
+  /// How it works — 3 steps
+  Widget _buildHowItWorks() => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: AppColors.primary.withOpacity(0.04),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+    ),
+    child: Column(
+      children: [
+        _howStep(
+          icon: Icons.upload_file_outlined,
+          color: AppColors.primary,
+          title: 'Upload CSV',
+          subtitle: 'Select your bank statement CSV',
+        ),
+        const SizedBox(height: 10),
+        _howStep(
+          icon: Icons.auto_fix_high_outlined,
+          color: Colors.orange,
+          title: 'Auto-detect',
+          subtitle: 'Bank account number will be detected from CSV',
+        ),
+        const SizedBox(height: 10),
+        _howStep(
+          icon: Icons.check_circle_outline_rounded,
+          color: AppColors.credit,
+          title: 'Confirm',
+          subtitle: 'Verify the bank and import',
+        ),
+      ],
+    ),
+  );
+
+  Widget _howStep({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+  }) => Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: 16, color: color),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
   // ── Stats Bar ──────────────────────────────────────────
   Widget _buildStatsBar() => Container(
     color: Colors.white,
     child: Column(
       children: [
+        // ✅ Confirmed bank account info strip
+        if (_confirmedBankAccount != null)
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_outlined,
+                    size: 13,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _confirmedBankAccount!.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (_confirmedBankAccount!.maskedAccountNumber != null)
+                  Text(
+                    _confirmedBankAccount!.maskedAccountNumber!,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: _changeBankAccount,
+                  child: Text(
+                    'Change',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.orange.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
           child: Row(
@@ -375,7 +378,6 @@ class _ImportScreenState extends State<ImportScreen>
                           onTap: _toggleAllDuplicates,
                         ),
                       ],
-                      // "New Acc" pill removed — no auto-creation
                       if (_unsetRows > 0) ...[
                         const SizedBox(width: 8),
                         StatPill(
@@ -446,12 +448,9 @@ class _ImportScreenState extends State<ImportScreen>
         : row.isDuplicate
         ? Colors.orange.shade50
         : Colors.white;
-
-    // accColor: red = unset, primary = assigned
     final Color accColor = row.accountName == null
         ? Colors.red
         : AppColors.primary;
-    final tc = tagColor(row.tag);
 
     return Opacity(
       opacity: row.skip ? 0.45 : 1.0,
@@ -483,7 +482,6 @@ class _ImportScreenState extends State<ImportScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Skip toggle checkbox
                 GestureDetector(
                   onTap: () => setState(() => row.skip = !row.skip),
                   child: Container(
@@ -553,7 +551,6 @@ class _ImportScreenState extends State<ImportScreen>
                                       ],
                                     ),
                                   ),
-                                // Title: matched account name OR raw description
                                 Text(
                                   row.accountName ?? row.description,
                                   style: TextStyle(
@@ -567,7 +564,6 @@ class _ImportScreenState extends State<ImportScreen>
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),
-                                // Show raw description as subtitle when account matched
                                 if (row.accountName != null)
                                   Text(
                                     row.description,
@@ -603,7 +599,6 @@ class _ImportScreenState extends State<ImportScreen>
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          // Account selector
                           Expanded(
                             child: GestureDetector(
                               onTap: () => _editRowAcc(i),
@@ -651,49 +646,6 @@ class _ImportScreenState extends State<ImportScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          // Tag selector
-                          // GestureDetector(
-                          //   onTap: () => _pickTag(i),
-                          //   child: Container(
-                          //     padding: const EdgeInsets.symmetric(
-                          //       horizontal: 10,
-                          //       vertical: 6,
-                          //     ),
-                          //     decoration: BoxDecoration(
-                          //       color: row.tag != null
-                          //           ? tc.withOpacity(0.1)
-                          //           : Colors.grey.shade50,
-                          //       borderRadius: BorderRadius.circular(8),
-                          //       border: Border.all(
-                          //         color: row.tag != null
-                          //             ? tc.withOpacity(0.3)
-                          //             : Colors.grey.shade200,
-                          //       ),
-                          //     ),
-                          //     child: Row(
-                          //       mainAxisSize: MainAxisSize.min,
-                          //       children: [
-                          //         Icon(
-                          //           row.tag != null
-                          //               ? tagIcon(row.tag)
-                          //               : Icons.label_outline,
-                          //           size: 12,
-                          //           color: row.tag != null ? tc : Colors.grey,
-                          //         ),
-                          //         const SizedBox(width: 4),
-                          //         Text(
-                          //           row.tag ?? 'Tag',
-                          //           style: TextStyle(
-                          //             fontSize: 11,
-                          //             color: row.tag != null ? tc : Colors.grey,
-                          //             fontWeight: FontWeight.w600,
-                          //           ),
-                          //         ),
-                          //       ],
-                          //     ),
-                          //   ),
-                          // ),
                         ],
                       ),
                     ],
@@ -780,7 +732,7 @@ class _ImportScreenState extends State<ImportScreen>
           Text(
             _imported
                 ? 'Transactions have been saved.'
-                : 'Select a bank account and upload your CSV.',
+                : 'Upload CSV — bank will be auto-detected.',
             style: const TextStyle(color: Colors.grey, fontSize: 13),
             textAlign: TextAlign.center,
           ),
@@ -790,6 +742,9 @@ class _ImportScreenState extends State<ImportScreen>
               onPressed: () => setState(() {
                 _imported = false;
                 _selectedBankAccountId = null;
+                _confirmedBankAccount = null;
+                _detectedAccountNumber = null;
+                _detectedAccountName = null;
               }),
               icon: const Icon(Icons.upload_file_outlined, size: 16),
               label: const Text('Import Another File'),
@@ -811,129 +766,227 @@ class _ImportScreenState extends State<ImportScreen>
     ),
   );
 
-  // ── Tag Picker ─────────────────────────────────────────
-  void _pickTag(int rowIdx) {
-    final row = _rows[rowIdx];
+  // ══════════════════════════════════════════════════════
+  // ✅ CSV ACCOUNT NUMBER DETECTION
+  // ══════════════════════════════════════════════════════
+
+  /// CSV ke pehle 20 lines mein account number dhundo
+  String? _detectAccountNumberFromCsv(String csvContent) {
+    final lines = csvContent.split('\n').take(20);
+
+    // Priority patterns (specific se generic ki taraf)
+    final patterns = [
+      // "Account No.: 123456789012"
+      RegExp(
+        r'[Aa]ccount\s*[Nn][ou]\.?\s*[:\-]?\s*(\d[\d\s]{8,17}\d)',
+        caseSensitive: false,
+      ),
+      // "A/C No: 123456789"
+      RegExp(
+        r'[Aa][/\\][Cc]\.?\s*[Nn][ou]?\.?\s*[:\-]?\s*(\d[\d\s]{8,17}\d)',
+        caseSensitive: false,
+      ),
+      // "Acct: 123456789"
+      RegExp(r'[Aa]cct\.?\s*[:\-]?\s*(\d[\d\s]{8,17}\d)', caseSensitive: false),
+      // "Account Number 123456789012"
+      RegExp(
+        r'[Aa]ccount\s+[Nn]umber\s*[:\-]?\s*(\d[\d\s]{8,17}\d)',
+        caseSensitive: false,
+      ),
+      // Fallback: standalone 9-18 digit number
+      RegExp(r'\b(\d{9,18})\b'),
+    ];
+
+    for (final line in lines) {
+      for (final pattern in patterns) {
+        final match = pattern.firstMatch(line);
+        if (match != null) {
+          final num = match.group(1)!.replaceAll(RegExp(r'\s'), '');
+          if (num.length >= 9) return num;
+        }
+      }
+    }
+    return null;
+  }
+
+  String? _detectBankName(String csv) {
+    final lines = csv
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .take(20)
+        .toList();
+
+    // 🔥 1. Structured detection (Bank: ...)
+    for (final line in lines) {
+      final match = RegExp(
+        r'bank\s*[:\-,]\s*(.+)',
+        caseSensitive: false,
+      ).firstMatch(line);
+      if (match != null) {
+        final bank = match.group(1)?.trim();
+        if (bank != null && bank.isNotEmpty) {
+          return _normalizeBankName(bank);
+        }
+      }
+    }
+
+    // 🔥 2. Keyword detection (anywhere in header)
+    final headerText = lines.join(' ').toLowerCase();
+
+    final bankMap = {
+      'state bank': 'SBI',
+      'sbi': 'SBI',
+      'hdfc': 'HDFC',
+      'icici': 'ICICI',
+      'axis': 'Axis Bank',
+      'kotak': 'Kotak Bank',
+      'yes bank': 'Yes Bank',
+      'union bank': 'Union Bank',
+      'pnb': 'PNB',
+      'bank of baroda': 'BOB',
+    };
+
+    for (final key in bankMap.keys) {
+      if (headerText.contains(key)) {
+        return bankMap[key];
+      }
+    }
+
+    // 🔥 3. Heuristic: line me "bank" word ho
+    for (final line in lines) {
+      final lower = line.toLowerCase();
+      if (lower.contains('bank')) {
+        final cleaned = _cleanBankName(line);
+        if (cleaned.length > 3) {
+          return _normalizeBankName(cleaned);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  bool _isValidName(String? name) {
+    if (name == null || name.isEmpty) return false;
+
+    // avoid numeric or junk
+    if (RegExp(r'^\d+$').hasMatch(name)) return false;
+
+    // avoid too short
+    if (name.length < 3) return false;
+
+    return true;
+  }
+
+  String _cleanBankName(String name) {
+    return name
+        .replaceAll(RegExp(r'[^a-zA-Z\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _normalizeBankName(String name) {
+    final lower = name.toLowerCase();
+
+    if (lower.contains('state bank')) return 'SBI';
+    if (lower.contains('hdfc')) return 'HDFC';
+    if (lower.contains('icici')) return 'ICICI';
+    if (lower.contains('axis')) return 'Axis Bank';
+    if (lower.contains('kotak')) return 'Kotak Bank';
+    if (lower.contains('yes bank')) return 'Yes Bank';
+    if (lower.contains('union bank')) return 'Union Bank';
+    if (lower.contains('pnb')) return 'PNB';
+    if (lower.contains('baroda')) return 'BOB';
+
+    return _toTitleCase(name);
+  }
+
+  String _toTitleCase(String text) {
+    return text
+        .toLowerCase()
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return word;
+          return word[0].toUpperCase() + word.substring(1);
+        })
+        .join(' ');
+  }
+
+  // ══════════════════════════════════════════════════════
+  // ✅ BANK CONFIRMATION BOTTOM SHEET
+  // ══════════════════════════════════════════════════════
+
+  /// CSV pick ke baad call hoga — bank confirm karo, phir parse karo
+  Future<bool> _showBankConfirmationSheet({
+    required String csvContent,
+    required String? detectedAccNo,
+    required Account? matchedAccount,
+    required String? detectedName,
+  }) async {
+    final bankAccounts = ctrl.assetAccounts
+        .where((a) => a.type == 'bank')
+        .toList();
+
+    final result = await showModalBottomSheet<_BankConfirmResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) => _BankConfirmSheet(
+        detectedAccNo: detectedAccNo,
+        matchedAccount: matchedAccount,
+        detectedName: detectedName,
+        bankAccounts: bankAccounts,
+        onNewAccount: _createNewBankAccount,
+      ),
+    );
+
+    if (result == null) return false; // user ne dismiss kiya
+
+    setState(() {
+      _confirmedBankAccount = result.account;
+      _selectedBankAccountId = result.account.id;
+    });
+    return true;
+  }
+
+  /// Naya bank account create karo
+  Future<Account?> _createNewBankAccount({
+    required String name,
+    required String? accountNumber,
+  }) async {
+    final newAcc = Account(
+      name: name,
+      type: 'bank',
+      openingBalance: 0,
+      accountNumber: accountNumber,
+      masterAccountId: ctrl.activeMaId.value > 0 ? ctrl.activeMaId.value : null,
+    );
+    await ctrl.addAccount(newAcc);
+    return newAcc;
+  }
+
+  /// User stats bar se bank change karna chahe
+  void _changeBankAccount() {
+    final bankAccounts = ctrl.assetAccounts
+        .where((a) => a.type == 'bank')
+        .toList();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Row(
-              children: [
-                const Text(
-                  'Select Tag',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
-                ),
-                const Spacer(),
-                if (row.tag != null)
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() => row.tag = null);
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.close, size: 13),
-                    label: const Text('Remove', style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ctrl.tags.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.label_off_outlined,
-                          size: 36,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'No tag found',
-                          style: TextStyle(color: Colors.grey, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  )
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ctrl.tags.map((tag) {
-                      final selected = row.tag == tag.name;
-                      final color = tagColor(tag.name);
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() => row.tag = tag.name);
-                          Navigator.pop(context);
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 9,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selected ? color : color.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: selected ? color : color.withOpacity(0.2),
-                            ),
-                            boxShadow: selected
-                                ? [
-                                    BoxShadow(
-                                      color: color.withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ]
-                                : [],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                tagIcon(tag.name),
-                                size: 14,
-                                color: selected ? Colors.white : color,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                tag.name,
-                                style: TextStyle(
-                                  color: selected ? Colors.white : color,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-          ],
-        ),
+      isScrollControlled: true,
+      builder: (_) => _BankSelectorSheet(
+        bankAccounts: bankAccounts,
+        selectedId: _selectedBankAccountId,
+        onSelect: (acc) {
+          setState(() {
+            _confirmedBankAccount = acc;
+            _selectedBankAccountId = acc.id;
+          });
+          Navigator.pop(context);
+        },
       ),
     );
   }
@@ -961,6 +1014,9 @@ class _ImportScreenState extends State<ImportScreen>
             setState(() {
               _rows = [];
               _imported = false;
+              _confirmedBankAccount = null;
+              _selectedBankAccountId = null;
+              _detectedAccountNumber = null;
             });
           },
           style: ElevatedButton.styleFrom(
@@ -976,7 +1032,10 @@ class _ImportScreenState extends State<ImportScreen>
     ),
   );
 
-  // ── Pick & Parse CSV ───────────────────────────────────
+  // ══════════════════════════════════════════════════════
+  // ✅ PICK & PARSE CSV — AUTO-DETECT FLOW
+  // ══════════════════════════════════════════════════════
+
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -992,12 +1051,49 @@ class _ImportScreenState extends State<ImportScreen>
     try {
       final content = await File(result.files.first.path!).readAsString();
 
-      setState(() => _loadingMsg = 'Checking duplicates...');
+      // ✅ Step 1: Account number detect karo CSV header se
+      setState(() => _loadingMsg = 'Detecting bank account...');
+
+      final detectedAccNo = _detectAccountNumberFromCsv(content);
+      final detectedName = _detectBankName(content);
+
+      _detectedAccountNumber = detectedAccNo;
+      _detectedAccountName = detectedName;
+
+      // ✅ Step 2: Existing bank accounts mein match dhundo
+      Account? matchedAccount;
+      if (detectedAccNo != null) {
+        final activeMaId = ctrl.activeMaId.value > 0
+            ? ctrl.activeMaId.value
+            : null;
+        matchedAccount = await DBHelper.instance.findBankByAccountNumber(
+          detectedAccNo,
+          masterAccountId: activeMaId,
+        );
+      }
+
+      setState(() => _loading = false);
+
+      // ✅ Step 3: User se confirm karo
+      final confirmed = await _showBankConfirmationSheet(
+        csvContent: content,
+        detectedAccNo: detectedAccNo,
+        matchedAccount: matchedAccount,
+        detectedName: detectedName,
+      );
+
+      if (!confirmed) return; // user ne cancel kiya
+
+      // ✅ Step 4: Full parse karo
+      setState(() {
+        _loading = true;
+        _loadingMsg = 'Checking duplicates...';
+      });
+
       final existingKeys = await _buildExistingTxKeys();
 
       setState(() => _loadingMsg = 'Loading keywords...');
 
-      // accountId → keywords (from accounts.keywords column)
       final keywordsMap = <int, List<String>>{};
       for (final acc in ctrl.accounts) {
         if (acc.id != null && acc.keywords.isNotEmpty) {
@@ -1005,12 +1101,7 @@ class _ImportScreenState extends State<ImportScreen>
         }
       }
 
-      // global_keywords table se: tagId → keywords
       final globalKwMap = await DBHelper.instance.getGlobalKeywordsMap();
-
-      print("global keyword $globalKwMap");
-
-      // tagId → tagName
       final tagIdToName = <int, String>{
         for (final t in ctrl.tags)
           if (t.id != null) t.id!: t.name,
@@ -1090,10 +1181,9 @@ class _ImportScreenState extends State<ImportScreen>
       final activeMaId = ctrl.activeMaId.value > 0
           ? ctrl.activeMaId.value
           : null;
-
       final result = await db.rawQuery(
         'SELECT importHash FROM transactions WHERE importHash IS NOT NULL AND masterAccountId = ?',
-        [activeMaId], // ✅ sirf is MA ki duplicates check karo
+        [activeMaId],
       );
       return result.map((r) => r['importHash'] as String).toSet();
     } catch (_) {
@@ -1102,11 +1192,8 @@ class _ImportScreenState extends State<ImportScreen>
   }
 
   // ── Edit Row Account ───────────────────────────────────
-  // User manually select karta hai — keyword bhi save hoga
   void _editRowAcc(int rowIdx) {
     final row = _rows[rowIdx];
-
-    // Suggested name: matched account ya raw description se pehle 3 words
     final sugName =
         row.accountName ??
         row.description.split(RegExp(r'\s+')).take(3).join(' ').trim();
@@ -1167,7 +1254,6 @@ class _ImportScreenState extends State<ImportScreen>
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                        // Header
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                           child: Row(
@@ -1214,7 +1300,6 @@ class _ImportScreenState extends State<ImportScreen>
                           ),
                         ),
 
-                        // Search bar (when not creating)
                         if (!showCreate)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1247,7 +1332,6 @@ class _ImportScreenState extends State<ImportScreen>
                             ),
                           ),
 
-                        // Create new account panel
                         if (showCreate) ...[
                           Container(
                             margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1270,15 +1354,6 @@ class _ImportScreenState extends State<ImportScreen>
                                     fillColor: Colors.white,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.shade200,
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.shade200,
-                                      ),
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 12,
@@ -1326,15 +1401,6 @@ class _ImportScreenState extends State<ImportScreen>
                                     fillColor: Colors.white,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.shade200,
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.shade200,
-                                      ),
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 12,
@@ -1360,7 +1426,6 @@ class _ImportScreenState extends State<ImportScreen>
                                                   : null,
                                             );
                                             await ctrl.addAccount(newAcc);
-
                                             if (newAcc.id != null) {
                                               final kw = _keywordsFromRow(row);
                                               if (kw.isNotEmpty) {
@@ -1371,7 +1436,6 @@ class _ImportScreenState extends State<ImportScreen>
                                                     );
                                               }
                                             }
-
                                             setState(() {
                                               _rows[rowIdx]
                                                 ..accountId = newAcc.id
@@ -1402,9 +1466,6 @@ class _ImportScreenState extends State<ImportScreen>
                                       newName.trim().isEmpty
                                           ? 'Enter name...'
                                           : 'Create "${nameCtrl.text.trim()}"',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
                                     ),
                                   ),
                                 ),
@@ -1426,7 +1487,6 @@ class _ImportScreenState extends State<ImportScreen>
 
                         Divider(height: 1, color: Colors.grey.shade100),
 
-                        // Accounts list
                         Expanded(
                           child: filtered.isEmpty
                               ? Center(
@@ -1569,8 +1629,6 @@ class _ImportScreenState extends State<ImportScreen>
                                                     ..isNewAccount = false;
                                                 });
                                                 Navigator.pop(context);
-
-                                                // Manual assign → keywords save karo
                                                 if (a.id != null) {
                                                   final kw = _keywordsFromRow(
                                                     row,
@@ -1607,7 +1665,16 @@ class _ImportScreenState extends State<ImportScreen>
 
   // ── Do Import ──────────────────────────────────────────
   Future<void> _doImport() async {
-    // Unset rows hain toh confirm karo
+    if (_selectedBankAccountId == null) {
+      Get.snackbar(
+        'Error',
+        'Bank account not confirmed. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     if (_unsetRows > 0) {
       final ok = await showDialog<bool>(
         context: context,
@@ -1620,9 +1687,8 @@ class _ImportScreenState extends State<ImportScreen>
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           content: Text(
-            '$_unsetRows rows do not have an assigned account. Do you want to skip them?',
+            '$_unsetRows rows do not have an assigned account. Skip them?',
           ),
-
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -1633,9 +1699,6 @@ class _ImportScreenState extends State<ImportScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
               ),
               child: const Text('Skip & Import'),
             ),
@@ -1651,9 +1714,7 @@ class _ImportScreenState extends State<ImportScreen>
     });
 
     try {
-      // Sirf assigned + not skipped rows import honge
       final valid = _rows.where((r) => !r.skip && r.accountId != null).toList();
-
       final vList = <TxVoucher>[];
       final eList = <List<Entry>>[];
       final bankId = _selectedBankAccountId!;
@@ -1722,21 +1783,16 @@ class _ImportScreenState extends State<ImportScreen>
         eList,
       );
 
-      // Keywords save karo (manual assign ke liye bhi)
       setState(() => _loadingMsg = 'Saving keywords...');
       final kwMap = <int, List<String>>{};
-      print("valid rows: $valid");
       for (final row in valid) {
         if (row.accountId == null) continue;
         final kw = _keywordsFromRow(row);
-
-        print('keywords: $kw');
         if (kw.isNotEmpty) {
           kwMap.putIfAbsent(row.accountId!, () => []).addAll(kw);
         }
       }
       await DBHelper.instance.bulkUpdateKeywords(kwMap);
-
       await ctrl.loadAll();
 
       setState(() {
@@ -1770,46 +1826,26 @@ class _ImportScreenState extends State<ImportScreen>
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
 
-  // ── Keyword Helpers ────────────────────────────────────
-  // Description se keywords extract karo — next import mein auto-match ke liye
   List<String> _keywordsFromRow(PRowData row) {
     final keywords = <String>{};
-
-    // 🔥 1. Cleaned Name (highest priority)
     if (row.cleanedName.isNotEmpty) {
       final name = _normalize(row.cleanedName);
-      if (name.length >= 3) {
-        keywords.add(name); // full phrase
-      }
+      if (name.length >= 3) keywords.add(name);
     }
-
-    // 🔥 2. UPI handle
     final upiMatch = RegExp(
       r'([a-zA-Z0-9]{3,})@',
     ).firstMatch(row.description.toLowerCase());
-
     if (upiMatch != null) {
       final handle = upiMatch.group(1)!.toLowerCase();
-      if (!_isStopWord(handle)) {
-        keywords.add(handle);
-      }
+      if (!_isStopWord(handle)) keywords.add(handle);
     }
-
-    // 🔥 3. Smart words extraction
     final words = _normalize(
       row.description,
     ).split(' ').where((w) => w.length >= 3 && !_isStopWord(w)).toList();
-
-    // 👉 Add best single word (main identity)
-    if (words.isNotEmpty) {
-      keywords.add(words.last); // usually name comes last (suraj)
-    }
-
-    // 👉 Add 2-word phrase (better accuracy)
+    if (words.isNotEmpty) keywords.add(words.last);
     if (words.length >= 2) {
-      keywords.add("${words[words.length - 2]} ${words.last}");
+      keywords.add('${words[words.length - 2]} ${words.last}');
     }
-
     return keywords.toList();
   }
 
@@ -1845,4 +1881,619 @@ class _ImportScreenState extends State<ImportScreen>
   };
 
   bool _isStopWord(String w) => _stopWords.contains(w.toLowerCase());
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ✅ BANK CONFIRM RESULT
+// ══════════════════════════════════════════════════════════════════════
+
+class _BankConfirmResult {
+  final Account account;
+  const _BankConfirmResult(this.account);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ✅ BANK CONFIRMATION BOTTOM SHEET WIDGET
+// ══════════════════════════════════════════════════════════════════════
+
+class _BankConfirmSheet extends StatefulWidget {
+  final String? detectedAccNo;
+  final String? detectedName;
+  final Account? matchedAccount;
+  final List<Account> bankAccounts;
+  final Future<Account?> Function({
+    required String name,
+    required String? accountNumber,
+  })
+  onNewAccount;
+
+  const _BankConfirmSheet({
+    required this.detectedAccNo,
+    required this.matchedAccount,
+    required this.bankAccounts,
+    required this.detectedName,
+    required this.onNewAccount,
+  });
+
+  @override
+  State<_BankConfirmSheet> createState() => _BankConfirmSheetState();
+}
+
+class _BankConfirmSheetState extends State<_BankConfirmSheet> {
+  // View states: 'confirm' | 'select' | 'create'
+  String _view = 'confirm';
+
+  Account? _selectedAccount;
+  final _nameCtrl = TextEditingController();
+  bool _creating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.detectedName != null) {
+      _nameCtrl.text = widget.detectedName!;
+    }
+    _selectedAccount = widget.matchedAccount;
+    // Agar match nahi mila to seedha select view
+    if (widget.matchedAccount == null && widget.bankAccounts.isNotEmpty) {
+      _view = 'select';
+    } else if (widget.matchedAccount == null && widget.bankAccounts.isEmpty) {
+      _view = 'create';
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    if (_selectedAccount == null) {
+      Get.snackbar("Error", "Please select account");
+      return;
+    }
+
+    Navigator.pop(context, _BankConfirmResult(_selectedAccount!));
+  }
+
+  Future<void> _createAndConfirm() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      Get.snackbar("Error", "Enter account name");
+      return;
+    }
+    setState(() => _creating = true);
+    try {
+      final acc = await widget.onNewAccount(
+        name: name,
+        accountNumber: widget.detectedAccNo,
+      );
+      if (acc != null && mounted) {
+        Navigator.pop(context, _BankConfirmResult(acc));
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: _view == 'select' ? 0.7 : 0.5,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (_, sc) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            if (_view == 'confirm') _buildConfirmView(),
+            if (_view == 'select') _buildSelectView(sc),
+            if (_view == 'create') _buildCreateView(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── View 1: Confirm matched account ─────────────────────
+  Widget _buildConfirmView() => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+    child: Column(
+      children: [
+        // Icon
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.account_balance_outlined,
+            size: 30,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Bank Account Detected',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Is this your bank account?',
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+        ),
+        const SizedBox(height: 20),
+
+        // Account card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.account_balance_outlined,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedAccount?.name ??
+                          widget.detectedName ??
+                          'Unknown',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (widget.detectedAccNo != null)
+                      Text(
+                        'Account: ••••${widget.detectedAccNo!.length >= 4 ? widget.detectedAccNo!.substring(widget.detectedAccNo!.length - 4) : widget.detectedAccNo}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Buttons
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => setState(() => _view = 'select'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  side: BorderSide(color: Colors.grey.shade300),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'No, change',
+                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _confirm,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Yes, this is it ✓',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  // ── View 2: Select from existing bank accounts ───────────
+  Widget _buildSelectView(ScrollController sc) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Select Bank Account',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => setState(() => _view = 'create'),
+                    icon: const Icon(Icons.add, size: 15),
+                    label: const Text('New', style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              if (widget.detectedAccNo != null)
+                Text(
+                  'Detected: ••••${widget.detectedAccNo!.length >= 4 ? widget.detectedAccNo!.substring(widget.detectedAccNo!.length - 4) : widget.detectedAccNo}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Divider(height: 1, color: Colors.grey.shade100),
+        Expanded(
+          child: widget.bankAccounts.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.account_balance_outlined,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No bank account found',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => setState(() => _view = 'create'),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Create new bank account'),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  controller: sc,
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                  itemCount: widget.bankAccounts.length,
+                  itemBuilder: (_, i) {
+                    final acc = widget.bankAccounts[i];
+                    final isSelected = _selectedAccount?.id == acc.id;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withOpacity(0.06)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary.withOpacity(0.3)
+                              : Colors.grey.shade100,
+                        ),
+                      ),
+                      child: ListTile(
+                        dense: true,
+                        leading: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                          child: const Icon(
+                            Icons.account_balance_outlined,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        title: Text(
+                          acc.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: isSelected
+                                ? AppColors.primary
+                                : Colors.black87,
+                          ),
+                        ),
+                        subtitle: acc.maskedAccountNumber != null
+                            ? Text(
+                                acc.maskedAccountNumber!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                              )
+                            : null,
+                        trailing: isSelected
+                            ? const Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.primary,
+                                size: 20,
+                              )
+                            : null,
+                        onTap: () {
+                          setState(() => _selectedAccount = acc);
+                          _confirm();
+                        },
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    ),
+  );
+
+  // ── View 3: Create new bank account ─────────────────────
+  Widget _buildCreateView() => Padding(
+    padding: EdgeInsets.only(
+      left: 20,
+      right: 20,
+      top: 12,
+      bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Create New Bank Account',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const Spacer(),
+            if (widget.bankAccounts.isNotEmpty)
+              TextButton(
+                onPressed: () => setState(() => _view = 'select'),
+                child: const Text(
+                  'Select existing',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Detected account number display
+        if (widget.detectedAccNo != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.credit_card_outlined,
+                  size: 16,
+                  color: Colors.orange.shade700,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Detected Account Number',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.orange.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        widget.detectedAccNo!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange.shade800,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        TextField(
+          controller: _nameCtrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            labelText: 'Bank Account Name',
+            hintText: 'e.g. SBI , HDFC ',
+            prefixIcon: const Icon(Icons.account_balance_outlined, size: 18),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _creating ? null : _createAndConfirm,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: _creating
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check, size: 16),
+            label: Text(
+              _creating ? 'Creating...' : 'Create & Import',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ✅ BANK SELECTOR SHEET (stats bar "Change" button ke liye)
+// ══════════════════════════════════════════════════════════════════════
+
+class _BankSelectorSheet extends StatelessWidget {
+  final List<Account> bankAccounts;
+  final int? selectedId;
+  final void Function(Account) onSelect;
+
+  const _BankSelectorSheet({
+    required this.bankAccounts,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Select Bank Account',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          Divider(height: 1, color: Colors.grey.shade100),
+          ...bankAccounts.map((acc) {
+            final isSelected = acc.id == selectedId;
+            return ListTile(
+              leading: CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.primary.withOpacity(0.1),
+                child: const Icon(
+                  Icons.account_balance_outlined,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+              ),
+              title: Text(
+                acc.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? AppColors.primary : Colors.black87,
+                ),
+              ),
+              subtitle: acc.maskedAccountNumber != null
+                  ? Text(acc.maskedAccountNumber!)
+                  : null,
+              trailing: isSelected
+                  ? const Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.primary,
+                    )
+                  : null,
+              onTap: () => onSelect(acc),
+            );
+          }),
+        ],
+      ),
+    );
+  }
 }

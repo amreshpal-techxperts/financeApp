@@ -98,8 +98,8 @@ class MasterAccountController extends GetxController {
         'createdAt': now,
       },
       {
-        'name': 'Bank', // 🔥 fixed name
-        'type': 'bank',
+        'name': 'Expense', // 🔥 replaced Bank with Expense
+        'type': 'expense',
         'openingBalance': 0.0,
         'masterAccountId': masterId,
         'createdAt': now,

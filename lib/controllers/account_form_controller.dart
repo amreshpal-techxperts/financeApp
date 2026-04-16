@@ -11,6 +11,7 @@ class AccountFormController extends GetxController {
   late final TextEditingController nameCtrl;
   late final TextEditingController balCtrl;
   late final TextEditingController phoneCtrl;
+  final TextEditingController accountNumberCtrl = TextEditingController();
   late final RxString type;
   late final RxInt selectedMAId; // -1 = none selected
 
@@ -20,10 +21,12 @@ class AccountFormController extends GetxController {
   void onInit() {
     super.onInit();
     nameCtrl = TextEditingController(text: account?.name ?? '');
+
     balCtrl = TextEditingController(
       text: account?.openingBalance.toStringAsFixed(2) ?? '0',
     );
     phoneCtrl = TextEditingController(text: account?.phone ?? '');
+    accountNumberCtrl.text = account?.accountNumber ?? '';
     type = (account?.type ?? defaultType).obs;
     selectedMAId = (account?.masterAccountId ?? -1).obs;
   }
@@ -33,6 +36,7 @@ class AccountFormController extends GetxController {
     nameCtrl.dispose();
     balCtrl.dispose();
     phoneCtrl.dispose();
+    accountNumberCtrl.dispose();
     super.onClose();
   }
 }
