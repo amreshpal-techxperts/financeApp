@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field
 
+import 'dart:developer';
+
 import 'package:financeapp/controllers/app_controller.dart';
 import 'package:financeapp/database/db_helper.dart';
 import 'package:financeapp/models/account.dart';
@@ -774,6 +776,8 @@ class _ImportScreenState extends State<ImportScreen>
   String? _detectAccountNumberFromCsv(String csvContent) {
     final lines = csvContent.split('\n').take(20);
 
+    log("lines $lines");
+
     // Priority patterns (specific se generic ki taraf)
     final patterns = [
       // "Account No.: 123456789012"
@@ -865,18 +869,6 @@ class _ImportScreenState extends State<ImportScreen>
     }
 
     return null;
-  }
-
-  bool _isValidName(String? name) {
-    if (name == null || name.isEmpty) return false;
-
-    // avoid numeric or junk
-    if (RegExp(r'^\d+$').hasMatch(name)) return false;
-
-    // avoid too short
-    if (name.length < 3) return false;
-
-    return true;
   }
 
   String _cleanBankName(String name) {
@@ -1050,6 +1042,8 @@ class _ImportScreenState extends State<ImportScreen>
 
     try {
       final content = await File(result.files.first.path!).readAsString();
+
+      print('content ${content.runtimeType} $content');
 
       // ✅ Step 1: Account number detect karo CSV header se
       setState(() => _loadingMsg = 'Detecting bank account...');
@@ -1935,9 +1929,13 @@ class _BankConfirmSheetState extends State<_BankConfirmSheet> {
     }
     _selectedAccount = widget.matchedAccount;
     // Agar match nahi mila to seedha select view
-    if (widget.matchedAccount == null && widget.bankAccounts.isNotEmpty) {
+    if (widget.matchedAccount != null) {
+      _view = 'confirm';
+    } else if (widget.detectedAccNo != null || widget.detectedName != null) {
+      _view = 'create';
+    } else if (widget.bankAccounts.isNotEmpty) {
       _view = 'select';
-    } else if (widget.matchedAccount == null && widget.bankAccounts.isEmpty) {
+    } else {
       _view = 'create';
     }
   }
